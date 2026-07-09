@@ -340,7 +340,7 @@ function TabCapacitaciones({ empId }: { empId: number }) {
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                       c.estado_participante === 'Completado' ? 'bg-emerald-100 text-emerald-700' :
                       c.estado_participante === 'Inscrito'   ? 'bg-blue-100 text-blue-700' :
-                      c.estado_participante === 'Abandonó'   ? 'bg-red-100 text-red-600' :
+                      c.estado_participante === 'Abandono'   ? 'bg-red-100 text-red-600' :
                       'bg-slate-100 text-slate-500'}`}>{c.estado_participante}</span>
                     {c.aprobado && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">✓ Aprobado</span>}
                   </div>
@@ -492,7 +492,7 @@ function TabEvaluaciones({ empId }: { empId: number }) {
               </div>
               <table className="w-full">
                 <thead><tr className="border-b border-slate-100">
-                  {['Período', 'Tipo', 'Promedio', 'Liderazgo', 'Equipo', 'Técnico', 'Evaluador', 'Fecha'].map(h => (
+                  {['Período', 'Tipo', 'Promedio', 'Liderazgo', 'Equipo', 'Tecnico', 'Evaluador', 'Fecha'].map(h => (
                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
                   ))}
                 </tr></thead>
@@ -678,6 +678,9 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [cargos, setCargos] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
+  const [totales, setTotales] = useState<any>({});
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
@@ -692,7 +695,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   const emptyForm = {
     nombre: '', apellido: '', cedula: '', pasaporte: '',
     correo_corporativo: '', correo_personal: '', telefono: '', telefono_emergencia: '',
-    contacto_emergencia: '', fecha_nacimiento: '', genero: '', estado_civil: '', nacionalidad: 'Panameña',
+    contacto_emergencia: '', fecha_nacimiento: '', genero: '', estado_civil: '', nacionalidad: 'Panamena',
     id_departamento: '', id_cargo: '', id_supervisor: '', fecha_ingreso: '',
     salario_base: '', tipo_contrato: 'Indefinido', jornada: 'Completa',
     estado: 'Activo', modalidad: 'Presencial',
@@ -701,7 +704,8 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => { cargarDatos(); }, []);
-  useEffect(() => { cargarEmpleados(); }, [search, filterDept, filterEstado]);
+  useEffect(() => { setPage(1); }, [search, filterDept, filterEstado]);
+  useEffect(() => { cargarEmpleados(); }, [search, filterDept, filterEstado, page]);
 
   // Deep link: auto-open specific employee profile at specific tab
   useEffect(() => {
@@ -721,12 +725,24 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   }, [deepLink]);
 
   async function cargarDatos() {
-    const [d, c] = await Promise.all([
+    const [d, c, t] = await Promise.all([
       fetch('/api/departamentos').then(r => r.json()),
       fetch('/api/cargos').then(r => r.json()).catch(() => []),
+      fetch('/api/stats').then(r => r.json()).catch(() => ({})),
     ]);
     setDepartamentos(Array.isArray(d) ? d : []);
     setCargos(Array.isArray(c) ? c : []);
+    setTotales({
+      total: t.totalEmpleados,
+      activos: t.totalEmpleados,  // stats already filters activos
+      vacaciones: null,
+    });
+    // Get exact counts per estado
+    const [act, vac] = await Promise.all([
+      fetch('/api/empleados?estado=Activo&limit=1').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/empleados?estado=Vacaciones&limit=1').then(r=>r.json()).catch(()=>({})),
+    ]);
+    setTotales({ total: t.totalEmpleados, activos: act.total ?? 0, vacaciones: vac.total ?? 0 });
     cargarEmpleados();
   }
 
@@ -736,7 +752,8 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
     if (search) p.set('search', search);
     if (filterDept) p.set('dept', filterDept);
     if (filterEstado) p.set('estado', filterEstado);
-    p.set('limit', '50');
+    p.set('limit', String(PAGE_SIZE));
+    p.set('page', String(page));
     const r = await fetch(`/api/empleados?${p}`);
     const d = await r.json();
     setEmpleados(d.data || []);
@@ -921,9 +938,9 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
 
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total empleados', value: total, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Activos', value: empleados.filter(e => e.estado === 'Activo').length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'En vacaciones', value: empleados.filter(e => e.estado === 'Vacaciones').length, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Total empleados', value: totales.total ?? total, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Activos', value: totales.activos ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'En vacaciones', value: totales.vacaciones ?? '—', color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'Departamentos', value: departamentos.length, color: 'text-purple-600', bg: 'bg-purple-50' },
         ].map(k => (
           <div key={k.label} className={`${k.bg} rounded-xl p-4 border border-slate-100`}>
@@ -995,9 +1012,38 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
             ))}
           </tbody>
         </table>
-        <div className="px-4 py-2 border-t border-slate-100 text-xs text-slate-400 flex justify-between">
-          <span>Mostrando {empleados.length} de {total} empleados</span>
-          <span>Clic en una fila para ver el perfil completo</span>
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-xs text-slate-400">
+            Mostrando {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE, total)} de <strong>{total}</strong> empleados
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-slate-50 transition-colors">
+              ← Anterior
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: Math.ceil(total/PAGE_SIZE) }, (_, i) => i+1)
+                .filter(p => p === 1 || p === Math.ceil(total/PAGE_SIZE) || Math.abs(p-page) <= 2)
+                .reduce((acc: (number|string)[], p, i, arr) => {
+                  if (i > 0 && (p as number) - (arr[i-1] as number) > 1) acc.push('…');
+                  acc.push(p); return acc;
+                }, [])
+                .map((p, i) => p === '…'
+                  ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
+                  : <button key={p} onClick={() => setPage(Number(p))}
+                      className={`w-8 h-7 text-xs rounded-lg font-medium transition-colors
+                        ${page === p ? 'bg-blue-600 text-white' : 'border border-slate-200 hover:bg-slate-50 text-slate-600'}`}>
+                      {p}
+                    </button>
+                )}
+            </div>
+            <button onClick={() => setPage(p => Math.min(Math.ceil(total/PAGE_SIZE), p+1))}
+              disabled={page >= Math.ceil(total/PAGE_SIZE)}
+              className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-slate-50 transition-colors">
+              Siguiente →
+            </button>
+          </div>
+          <span className="text-xs text-slate-400">Clic en fila para ver perfil</span>
         </div>
       </div>
 
@@ -1099,7 +1145,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                         <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de contrato *</label>
                         <select value={form.tipo_contrato} onChange={e => setForm({ ...form, tipo_contrato: e.target.value })}
                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-                          {['Indefinido', 'Definido', 'Por obra', 'Temporal', 'Pasantía'].map(t => <option key={t}>{t}</option>)}
+                          {['Indefinido', 'Definido', 'Por obra', 'Temporal', 'Pasantia'].map(t => <option key={t}>{t}</option>)}
                         </select>
                       </div>
                       <div>
@@ -1121,7 +1167,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                         <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad</label>
                         <select value={form.modalidad} onChange={e => setForm({ ...form, modalidad: e.target.value })}
                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-                          {['Presencial', 'Híbrido', 'Remoto'].map(m => <option key={m}>{m}</option>)}
+                          {['Presencial', 'Hibrido', 'Remoto'].map(m => <option key={m}>{m}</option>)}
                         </select>
                       </div>
                     </div>
