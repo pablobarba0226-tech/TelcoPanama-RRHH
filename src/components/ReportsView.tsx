@@ -33,6 +33,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
     fetch('/api/alertas?nivel=warning').then(r => r.json()).then(d => setAlertas(Array.isArray(d) ? d.slice(0, 8) : []));
   }, []);
 
+  useEffect(() => { setPage(1); }, [tab, filterDept, filterFecha, filterEstado]);
   useEffect(() => { cargarReporte(); }, [tab, filterDept, filterFecha]);
 
   const ENDPOINTS: Record<string, string> = {
@@ -55,6 +56,44 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
       setData(await r.json());
     } catch { setData({}); }
     setLoading(false);
+  }
+
+  // ── Paginación helper ──────────────────────────────────────────────────────
+  function Paginacion({ total, rows }: { total: number; rows: any[] }) {
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+        <span className="text-xs text-slate-500">
+          Mostrando {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE, total)} de <strong>{total}</strong> registros
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
+            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
+            ← Anterior
+          </button>
+          {Array.from({length: totalPages}, (_,i)=>i+1)
+            .filter(p => p===1 || p===totalPages || Math.abs(p-page)<=2)
+            .reduce((acc:(number|string)[], p, i, arr) => {
+              if (i>0 && (p as number)-(arr[i-1] as number)>1) acc.push('…');
+              acc.push(p); return acc;
+            }, [])
+            .map((p,i) => p==='…'
+              ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
+              : <button key={p} onClick={() => setPage(Number(p))}
+                  className={`w-8 h-7 text-xs rounded-lg font-medium transition-colors
+                    ${page===p ? 'bg-blue-600 text-white' : 'border border-slate-200 hover:bg-white text-slate-600'}`}>
+                  {p}
+                </button>
+            )}
+          <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page>=totalPages}
+            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
+            Siguiente →
+          </button>
+        </div>
+        <span className="text-xs text-slate-400">Página {page} de {totalPages}</span>
+      </div>
+    );
   }
 
   // ── CSV Export ──────────────────────────────────────────────────────────────
@@ -245,7 +284,11 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {(data.registros || []).filter((r: any) => !filterEstado || r.estado === filterEstado).slice(0, 100).map((r: any, i: number) => (
+                {(() => {
+                  const filtrados = (data.registros || []).filter((r: any) => !filterEstado || r.estado === filterEstado);
+                  const paginados = filtrados.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+                  return paginados;
+                })().map((r: any, i: number) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-4 py-2.5 text-sm"><EmpLink emp={r} onNavigate={onNavigate} tab="asistencia" /></td>
                     <td className="px-4 py-2.5 text-sm text-slate-500">{r.departamento}</td>
@@ -264,6 +307,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            {(() => { const f=(data.registros||[]).filter((r:any)=>!filterEstado||r.estado===filterEstado); return <Paginacion total={f.length} rows={f} />; })()}
           </div>
         </div>
       )}
@@ -298,7 +342,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {(data.por_empleado || []).slice(0, 40).map((e: any, i: number) => (
+                {(data.por_empleado || []).slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map((e: any, i: number) => (
                   <tr key={i} className={`hover:bg-slate-50 ${e.pct_asistencia < 85 ? 'bg-red-50' : ''}`}>
                     <td className="px-4 py-2.5 text-sm"><EmpLink emp={e} onNavigate={onNavigate} tab="asistencia" /></td>
                     <td className="px-4 py-2.5 text-sm text-slate-500">{e.departamento}</td>
@@ -321,6 +365,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            <Paginacion total={(data.por_empleado||[]).length} rows={data.por_empleado||[]} />
           </div>
         </div>
       )}
@@ -410,7 +455,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {(data.empleados || []).slice(0, 50).map((e: any, i: number) => {
+                {(data.empleados || []).slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map((e: any, i: number) => {
                   const bajo = e.promedio_evaluacion && Number(e.promedio_evaluacion) < 2.5;
                   const riesgo = e.pct_entrega !== null && Number(e.pct_entrega) < 70;
                   return (
@@ -448,6 +493,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
+            <Paginacion total={(data.empleados||[]).length} rows={data.empleados||[]} />
           </div>
         </div>
       )}
@@ -511,7 +557,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {(data.saldos||[]).map((e: any) => {
+                {(data.saldos||[]).slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map((e: any) => {
                   const pend = Number(e.dias_pendientes);
                   const alerta = pend > 15;
                   const riesgo = pend > 10 && pend <= 15;
@@ -541,6 +587,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
+            <Paginacion total={(data.saldos||[]).length} rows={data.saldos||[]} />
           </div>
 
           {/* Vacaciones tomadas en el año */}
