@@ -70,6 +70,8 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [alertas, setAlertas] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const PAGE_SIZE = 50;
 
   useEffect(() => {
     fetch('/api/departamentos').then(r => r.json()).then(d => setDepartamentos(Array.isArray(d) ? d : []));
