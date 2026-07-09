@@ -78,8 +78,10 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
     fetch('/api/alertas?nivel=warning').then(r => r.json()).then(d => setAlertas(Array.isArray(d) ? d.slice(0, 8) : []));
   }, []);
 
-  useEffect(() => { setPage(1); }, [tab, filterDept, filterFecha, filterEstado]);
-  useEffect(() => { cargarReporte(); }, [tab, filterDept, filterFecha]);
+  useEffect(() => {
+    setPage(1);
+    cargarReporte();
+  }, [tab, filterDept, filterFecha, filterEstado]);
 
   const ENDPOINTS: Record<string, string> = {
     r1: '/api/reportes/asistencia-dia-anterior',
