@@ -6,6 +6,49 @@ const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
 
 type NavigateFn = (module: string, empId?: number, tab?: string) => void;
 
+// ── Pagination component (standalone, receives page/setPage as props) ─────────
+function Paginacion({ total, page, setPage, pageSize = 50 }: {
+  total: number;
+  page: number;
+  setPage: (p: number | ((prev: number) => number)) => void;
+  pageSize?: number;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+    .reduce((acc: (number | string)[], p, i, arr) => {
+      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('…');
+      acc.push(p); return acc;
+    }, []);
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+      <span className="text-xs text-slate-500">
+        Mostrando {((page-1)*pageSize)+1}–{Math.min(page*pageSize, total)} de <strong>{total}</strong> registros
+      </span>
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+          className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
+          ← Anterior
+        </button>
+        {pages.map((p, i) => p === '…'
+          ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
+          : <button key={p} onClick={() => setPage(Number(p))}
+              className={`w-8 h-7 text-xs rounded-lg font-medium transition-colors
+                ${page === p ? 'bg-blue-600 text-white' : 'border border-slate-200 hover:bg-white text-slate-600'}`}>
+              {p}
+            </button>
+        )}
+        <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page >= totalPages}
+          className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
+          Siguiente →
+        </button>
+      </div>
+      <span className="text-xs text-slate-400">Página {page} de {totalPages}</span>
+    </div>
+  );
+}
+
 function EmpLink({ emp, onNavigate, tab = 'asistencia' }: { emp: any; onNavigate?: NavigateFn; tab?: string }) {
   if (emp.id_empleado && onNavigate) {
     return (
@@ -56,44 +99,6 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
       setData(await r.json());
     } catch { setData({}); }
     setLoading(false);
-  }
-
-  // ── Paginación helper ──────────────────────────────────────────────────────
-  function Paginacion({ total, rows }: { total: number; rows: any[] }) {
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    if (totalPages <= 1) return null;
-    return (
-      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-        <span className="text-xs text-slate-500">
-          Mostrando {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE, total)} de <strong>{total}</strong> registros
-        </span>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
-            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
-            ← Anterior
-          </button>
-          {Array.from({length: totalPages}, (_,i)=>i+1)
-            .filter(p => p===1 || p===totalPages || Math.abs(p-page)<=2)
-            .reduce((acc:(number|string)[], p, i, arr) => {
-              if (i>0 && (p as number)-(arr[i-1] as number)>1) acc.push('…');
-              acc.push(p); return acc;
-            }, [])
-            .map((p,i) => p==='…'
-              ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
-              : <button key={p} onClick={() => setPage(Number(p))}
-                  className={`w-8 h-7 text-xs rounded-lg font-medium transition-colors
-                    ${page===p ? 'bg-blue-600 text-white' : 'border border-slate-200 hover:bg-white text-slate-600'}`}>
-                  {p}
-                </button>
-            )}
-          <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page>=totalPages}
-            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-medium disabled:opacity-40 hover:bg-white transition-colors">
-            Siguiente →
-          </button>
-        </div>
-        <span className="text-xs text-slate-400">Página {page} de {totalPages}</span>
-      </div>
-    );
   }
 
   // ── CSV Export ──────────────────────────────────────────────────────────────
@@ -307,7 +312,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
-            {(() => { const f=(data.registros||[]).filter((r:any)=>!filterEstado||r.estado===filterEstado); return <Paginacion total={f.length} rows={f} />; })()}
+            {(() => { const f=(data.registros||[]).filter((r:any)=>!filterEstado||r.estado===filterEstado); return <Paginacion total={f.length} page={page} setPage={setPage} />; })()}
           </div>
         </div>
       )}
@@ -365,7 +370,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
-            <Paginacion total={(data.por_empleado||[]).length} rows={data.por_empleado||[]} />
+            <Paginacion total={(data.por_empleado||[]).length} page={page} setPage={setPage} />
           </div>
         </div>
       )}
@@ -493,7 +498,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
-            <Paginacion total={(data.empleados||[]).length} rows={data.empleados||[]} />
+            <Paginacion total={(data.empleados||[]).length} page={page} setPage={setPage} />
           </div>
         </div>
       )}
@@ -587,7 +592,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
-            <Paginacion total={(data.saldos||[]).length} rows={data.saldos||[]} />
+            <Paginacion total={(data.saldos||[]).length} page={page} setPage={setPage} />
           </div>
 
           {/* Vacaciones tomadas en el año */}
