@@ -71,6 +71,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
   const [loading, setLoading] = useState(false);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [page, setPage] = useState<number>(1);
+  const [filterRango, setFilterRango] = useState<string>('');
   const PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
 
   useEffect(() => {
     setPage(1);
+    setFilterRango('');
     cargarReporte();
   }, [tab, filterDept, filterFecha, filterEstado]);
 
@@ -461,62 +463,158 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
       )}
 
       {/* ── R4: Métricas de personal ─────────────────────────────────────────── */}
-      {!loading && tab === 'r4' && data && (
+      {!loading && tab === 'r4' && data && (() => {
+        const rangoFiltrado = (data.empleados || []).filter((e: any) => {
+          if (!filterRango) return true;
+          const p = Number(e.puntaje_100 || 0);
+          if (filterRango === '90+')  return p >= 90;
+          if (filterRango === '80-89') return p >= 80 && p < 90;
+          if (filterRango === '70-79') return p >= 70 && p < 80;
+          if (filterRango === '<60')   return p < 60;
+          return true;
+        });
+        return (
         <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">
-            ⚠️ Filas resaltadas en rojo = empleados con métricas bajo el threshold · Amarillo = en zona de riesgo
-            {onNavigate && <span className="ml-2 text-slate-500">| Clic en nombre → evaluaciones del empleado</span>}
+          {/* Filtros de rango */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-slate-500 uppercase">Filtrar por puntaje:</span>
+            {[
+              { v: '',      l: 'Todos',   col: 'bg-slate-100 text-slate-600' },
+              { v: '90+',   l: '≥ 90%',   col: 'bg-emerald-100 text-emerald-700' },
+              { v: '80-89', l: '80–89%',  col: 'bg-blue-100 text-blue-700' },
+              { v: '70-79', l: '70–79%',  col: 'bg-amber-100 text-amber-700' },
+              { v: '<60',   l: '< 60%',   col: 'bg-red-100 text-red-700' },
+            ].map(f => (
+              <button key={f.v} onClick={() => { setFilterRango(f.v); setPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all
+                  ${filterRango === f.v ? f.col + ' border-current' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                {f.l}
+                <span className="ml-1.5 opacity-60">
+                  ({(data.empleados||[]).filter((e: any) => {
+                    const p = Number(e.puntaje_100||0);
+                    if (f.v === '90+')   return p >= 90;
+                    if (f.v === '80-89') return p >= 80 && p < 90;
+                    if (f.v === '70-79') return p >= 70 && p < 80;
+                    if (f.v === '<60')   return p < 60;
+                    return true;
+                  }).length})
+                </span>
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-slate-400">
+              ⚠️ Rojo = puntaje bajo threshold · Clic en nombre → evaluaciones
+            </span>
           </div>
+
+          {/* Resumen por departamento */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-800 text-sm">Resumen por departamento</h3>
+            </div>
             <table className="w-full">
-              <thead><tr className="bg-slate-50 border-b border-slate-200">
-                {['Empleado','Departamento','Cargo','Evaluación prom.','Proyectos','% Entrega','Tardanzas mes','Ausencias mes'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+              <thead><tr className="border-b border-slate-200">
+                {['Departamento','Empleados','Prom. /5','Puntaje /100','⭐ Excelente','✓ Bueno','~ Regular','↓ Bajo','Sin eval.'].map(h => (
+                  <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {(data.empleados || []).slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map((e: any, i: number) => {
-                  const bajo = e.promedio_evaluacion && Number(e.promedio_evaluacion) < 2.5;
-                  const riesgo = e.pct_entrega !== null && Number(e.pct_entrega) < 70;
+                {(data.por_departamento || []).map((d: any, i: number) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{d.departamento}</td>
+                    <td className="px-3 py-2.5 text-sm text-slate-500 text-center">{d.total_empleados}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`text-sm font-bold ${Number(d.promedio_evaluacion||0)>=4?'text-emerald-600':Number(d.promedio_evaluacion||0)>=3?'text-blue-600':Number(d.promedio_evaluacion||0)>=2?'text-amber-600':'text-red-600'}`}>
+                        {d.promedio_evaluacion ? Number(d.promedio_evaluacion).toFixed(1) : '—'}/5
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 max-w-20">
+                          <div className={`h-2 rounded-full ${Number(d.puntaje_100||0)>=80?'bg-emerald-500':Number(d.puntaje_100||0)>=60?'bg-amber-400':'bg-red-500'}`}
+                            style={{width:`${Math.min(Number(d.puntaje_100||0),100)}%`}} />
+                        </div>
+                        <span className={`text-sm font-bold ${Number(d.puntaje_100||0)>=80?'text-emerald-600':Number(d.puntaje_100||0)>=60?'text-amber-600':'text-red-600'}`}>
+                          {d.puntaje_100 ? Number(d.puntaje_100).toFixed(0) : '—'}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-center text-xs font-semibold text-emerald-600">{d.excelente||0}</td>
+                    <td className="px-3 py-2.5 text-center text-xs font-semibold text-blue-600">{d.bueno||0}</td>
+                    <td className="px-3 py-2.5 text-center text-xs font-semibold text-amber-600">{d.regular||0}</td>
+                    <td className="px-3 py-2.5 text-center text-xs font-semibold text-red-600">{d.bajo||0}</td>
+                    <td className="px-3 py-2.5 text-center text-xs text-slate-400">{d.sin_evaluacion||0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tabla individual */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800 text-sm">Detalle por empleado</h3>
+              <span className="text-xs text-slate-400">{rangoFiltrado.length} empleados{filterRango ? ` con puntaje ${filterRango}%` : ''}</span>
+            </div>
+            <table className="w-full">
+              <thead><tr className="border-b border-slate-200">
+                {['Empleado','Departamento','Cargo','Eval /5','Puntaje /100','Proyectos','% Entrega','Tard.','Aus.'].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {rangoFiltrado.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map((e: any, i: number) => {
+                  const p100 = Number(e.puntaje_100 || 0);
+                  const bajo = p100 > 0 && p100 < 50;
+                  const riesgo = p100 >= 50 && p100 < 70;
                   return (
-                    <tr key={i} className={`hover:bg-slate-50 ${bajo ? 'bg-red-50' : riesgo ? 'bg-amber-50' : ''}`}>
-                      <td className="px-4 py-2.5 text-sm">
-                        <EmpLink emp={e} onNavigate={onNavigate} tab="evaluaciones" />
-                      </td>
+                    <tr key={i} className={`hover:bg-slate-50 ${bajo?'bg-red-50':riesgo?'bg-amber-50':''}`}>
+                      <td className="px-4 py-2.5 text-sm"><EmpLink emp={e} onNavigate={onNavigate} tab="evaluaciones" /></td>
                       <td className="px-4 py-2.5 text-sm text-slate-500">{e.departamento}</td>
                       <td className="px-4 py-2.5 text-xs text-slate-400 max-w-xs truncate">{e.cargo}</td>
                       <td className="px-4 py-2.5">
-                        {e.promedio_evaluacion ? (
-                          <span className={`text-sm font-bold ${Number(e.promedio_evaluacion) >= 4 ? 'text-emerald-600' : Number(e.promedio_evaluacion) >= 3 ? 'text-blue-600' : Number(e.promedio_evaluacion) >= 2.5 ? 'text-amber-600' : 'text-red-600'}`}>
-                            {Number(e.promedio_evaluacion).toFixed(1)}/5
-                          </span>
+                        {e.promedio_evaluacion
+                          ? <span className={`text-sm font-bold ${Number(e.promedio_evaluacion)>=4?'text-emerald-600':Number(e.promedio_evaluacion)>=3?'text-blue-600':Number(e.promedio_evaluacion)>=2.5?'text-amber-600':'text-red-600'}`}>
+                              {Number(e.promedio_evaluacion).toFixed(1)}/5
+                            </span>
+                          : <span className="text-slate-300 text-sm">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {e.puntaje_100 ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-14 bg-slate-100 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full ${p100>=90?'bg-emerald-500':p100>=70?'bg-blue-500':p100>=60?'bg-amber-400':'bg-red-500'}`}
+                                style={{width:`${Math.min(p100,100)}%`}} />
+                            </div>
+                            <span className={`text-sm font-bold ${p100>=90?'text-emerald-600':p100>=70?'text-blue-600':p100>=60?'text-amber-600':'text-red-600'}`}>
+                              {p100.toFixed(0)}%
+                            </span>
+                          </div>
                         ) : <span className="text-slate-300 text-sm">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-sm text-slate-600">
-                        {e.proyectos_asignados > 0 ? `${e.proyectos_entregados}/${e.proyectos_asignados}` : '—'}
+                        {e.proyectos_asignados>0?`${e.proyectos_entregados}/${e.proyectos_asignados}`:'—'}
                       </td>
                       <td className="px-4 py-2.5 text-sm font-medium">
-                        {e.pct_entrega != null ? (
-                          <span className={Number(e.pct_entrega) >= 90 ? 'text-emerald-600' : Number(e.pct_entrega) >= 70 ? 'text-amber-600' : 'text-red-600'}>
-                            {e.pct_entrega}%
-                          </span>
-                        ) : <span className="text-slate-300">—</span>}
+                        {e.pct_entrega!=null
+                          ? <span className={Number(e.pct_entrega)>=90?'text-emerald-600':Number(e.pct_entrega)>=70?'text-amber-600':'text-red-600'}>{e.pct_entrega}%</span>
+                          : <span className="text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-sm">
-                        {e.tardanzas_mes > 4 ? <span className="text-amber-600 font-medium">⏰ {e.tardanzas_mes}</span> : e.tardanzas_mes || 0}
+                        {Number(e.tardanzas_mes)>4?<span className="text-amber-600 font-medium">⏰ {e.tardanzas_mes}</span>:e.tardanzas_mes||0}
                       </td>
                       <td className="px-4 py-2.5 text-sm">
-                        {e.ausencias_mes > 2 ? <span className="text-red-600 font-medium">❌ {e.ausencias_mes}</span> : e.ausencias_mes || 0}
+                        {Number(e.ausencias_mes)>2?<span className="text-red-600 font-medium">❌ {e.ausencias_mes}</span>:e.ausencias_mes||0}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            <Paginacion total={(data.empleados||[]).length} page={page} setPage={setPage} />
+            <Paginacion total={rangoFiltrado.length} page={page} setPage={setPage} />
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── R6: Vacaciones ──────────────────────────────────────────────────── */}
       {!loading && tab === 'r6' && data && (
