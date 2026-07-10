@@ -45,175 +45,6 @@ function Paginacion({ total, page, setPage, pageSize = 50 }: {
         </button>
       </div>
       <span className="text-xs text-slate-400">Página {page} de {totalPages}</span>
-      {/* ── R7: Estados de asistencia ──────────────────────────────────────────── */}
-      {!loading && tab === 'r7' && data && (
-        <div className="space-y-5">
-
-          {/* Fecha y resumen */}
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-800">
-              Resumen de asistencia — <span className="text-blue-600">{data.fecha_consultada}</span>
-            </h3>
-            {data.sin_registro > 0 && (
-              <div className="bg-slate-100 text-slate-600 text-xs font-medium px-3 py-1.5 rounded-lg">
-                ⚠️ {data.sin_registro} empleados sin registro hoy
-              </div>
-            )}
-          </div>
-
-          {/* KPI por estado */}
-          <div className="grid grid-cols-5 gap-3">
-            {(data.por_estado || []).map((e: any) => {
-              const cfg: Record<string, { col: string; bg: string; icon: string }> = {
-                'Presente':   { col: 'text-emerald-700', bg: 'bg-emerald-50', icon: '✅' },
-                'Tardanza':   { col: 'text-amber-700',   bg: 'bg-amber-50',   icon: '⏰' },
-                'Ausente':    { col: 'text-red-700',     bg: 'bg-red-50',     icon: '❌' },
-                'Vacaciones': { col: 'text-blue-700',    bg: 'bg-blue-50',    icon: '🏖️' },
-              };
-              const c = cfg[e.estado] || { col: 'text-slate-700', bg: 'bg-slate-50', icon: '📌' };
-              return (
-                <div key={e.estado} className={`${c.bg} rounded-xl p-4 border border-slate-100`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-slate-500">{e.estado}</span>
-                    <span className="text-lg">{c.icon}</span>
-                  </div>
-                  <p className={`text-3xl font-black ${c.col}`}>{e.cantidad}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{e.porcentaje}% del total</p>
-                </div>
-              );
-            })}
-            {data.sin_registro > 0 && (
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-slate-500">Sin registro</span>
-                  <span className="text-lg">❓</span>
-                </div>
-                <p className="text-3xl font-black text-slate-600">{data.sin_registro}</p>
-                <p className="text-xs text-slate-400 mt-0.5">no marcaron hoy</p>
-              </div>
-            )}
-          </div>
-
-          {/* Tendencia 30 días */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h4 className="font-semibold text-slate-800 mb-4 text-sm">Tendencia últimos 30 días</h4>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={data.tendencia || []} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="fecha" tickFormatter={(v: string) => v?.slice(5)} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.1)', fontSize: 11 }} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="presentes"  name="Presentes"  fill="#10b981" radius={[2,2,0,0]} stackId="a" />
-                <Bar dataKey="tardanzas"  name="Tardanzas"  fill="#f59e0b" radius={[0,0,0,0]} stackId="a" />
-                <Bar dataKey="ausentes"   name="Ausentes"   fill="#ef4444" radius={[0,0,0,0]} stackId="a" />
-                <Bar dataKey="vacaciones" name="Vacaciones" fill="#3b82f6" radius={[2,2,0,0]} stackId="a" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Por departamento */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
-              <h4 className="font-semibold text-slate-800 text-sm">Por departamento — {data.fecha_consultada}</h4>
-            </div>
-            <table className="w-full">
-              <thead><tr className="border-b border-slate-200">
-                {['Departamento','Total','Presentes','Tardanzas','Ausentes','Vacaciones','% Asistencia'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {(data.por_departamento || []).map((d: any, i: number) => (
-                  <tr key={i} className={`hover:bg-slate-50 ${Number(d.pct_asistencia) < 75 ? 'bg-red-50' : Number(d.pct_asistencia) < 90 ? 'bg-amber-50' : ''}`}>
-                    <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{d.departamento}</td>
-                    <td className="px-4 py-2.5 text-sm text-slate-500">{d.total}</td>
-                    <td className="px-4 py-2.5 text-sm text-emerald-600 font-medium">{d.presentes}</td>
-                    <td className="px-4 py-2.5 text-sm text-amber-600 font-medium">{d.tardanzas}</td>
-                    <td className="px-4 py-2.5 text-sm text-red-600 font-medium">{d.ausentes}</td>
-                    <td className="px-4 py-2.5 text-sm text-blue-600 font-medium">{d.vacaciones}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-slate-100 rounded-full h-1.5 max-w-20">
-                          <div className={`h-1.5 rounded-full ${Number(d.pct_asistencia) >= 90 ? 'bg-emerald-500' : Number(d.pct_asistencia) >= 75 ? 'bg-amber-400' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(Number(d.pct_asistencia), 100)}%` }} />
-                        </div>
-                        <span className={`text-sm font-bold ${Number(d.pct_asistencia) >= 90 ? 'text-emerald-600' : Number(d.pct_asistencia) >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
-                          {d.pct_asistencia}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Top tardanzas y ausencias */}
-          <div className="grid grid-cols-2 gap-5">
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
-                <h4 className="font-semibold text-amber-800 text-sm">⏰ Top 10 empleados con más tardanzas (mes)</h4>
-              </div>
-              <table className="w-full">
-                <thead><tr className="border-b border-slate-200">
-                  {['Empleado','Depto.','Tardanzas','Prom. min'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(data.top_tardanzas || []).map((e: any, i: number) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{e.empleado}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-24">{e.departamento}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${Number(e.tardanzas_mes) >= 5 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {e.tardanzas_mes}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-500 text-center">{e.promedio_min} min</td>
-                    </tr>
-                  ))}
-                  {!(data.top_tardanzas?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin tardanzas este mes</td></tr>}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="px-4 py-3 bg-red-50 border-b border-red-100">
-                <h4 className="font-semibold text-red-800 text-sm">❌ Top 10 empleados con más ausencias (mes)</h4>
-              </div>
-              <table className="w-full">
-                <thead><tr className="border-b border-slate-200">
-                  {['Empleado','Depto.','Ausencias','Injust.'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(data.top_ausencias || []).map((e: any, i: number) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{e.empleado}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-24">{e.departamento}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${Number(e.ausencias_mes) >= 3 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {e.ausencias_mes}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {Number(e.injustificadas) > 0
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{e.injustificadas}</span>
-                          : <span className="text-emerald-500 text-xs">✓</span>}
-                      </td>
-                    </tr>
-                  ))}
-                  {!(data.top_ausencias?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin ausencias este mes</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
@@ -874,6 +705,175 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
           </div>
         </div>
       )}
+      {/* ── R7: Estados de asistencia ──────────────────────────────────────────── */}
+      {!loading && tab === 'r7' && data && (
+        <div className="space-y-5">
+
+          {/* Fecha y resumen */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800">
+              Resumen de asistencia — <span className="text-blue-600">{data.fecha_consultada}</span>
+            </h3>
+            {data.sin_registro > 0 && (
+              <div className="bg-slate-100 text-slate-600 text-xs font-medium px-3 py-1.5 rounded-lg">
+                ⚠️ {data.sin_registro} empleados sin registro hoy
+              </div>
+            )}
+          </div>
+
+          {/* KPI por estado */}
+          <div className="grid grid-cols-5 gap-3">
+            {(data.por_estado || []).map((e: any) => {
+              const cfg: Record<string, { col: string; bg: string; icon: string }> = {
+                'Presente':   { col: 'text-emerald-700', bg: 'bg-emerald-50', icon: '✅' },
+                'Tardanza':   { col: 'text-amber-700',   bg: 'bg-amber-50',   icon: '⏰' },
+                'Ausente':    { col: 'text-red-700',     bg: 'bg-red-50',     icon: '❌' },
+                'Vacaciones': { col: 'text-blue-700',    bg: 'bg-blue-50',    icon: '🏖️' },
+              };
+              const c = cfg[e.estado] || { col: 'text-slate-700', bg: 'bg-slate-50', icon: '📌' };
+              return (
+                <div key={e.estado} className={`${c.bg} rounded-xl p-4 border border-slate-100`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-500">{e.estado}</span>
+                    <span className="text-lg">{c.icon}</span>
+                  </div>
+                  <p className={`text-3xl font-black ${c.col}`}>{e.cantidad}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{e.porcentaje}% del total</p>
+                </div>
+              );
+            })}
+            {data.sin_registro > 0 && (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-slate-500">Sin registro</span>
+                  <span className="text-lg">❓</span>
+                </div>
+                <p className="text-3xl font-black text-slate-600">{data.sin_registro}</p>
+                <p className="text-xs text-slate-400 mt-0.5">no marcaron hoy</p>
+              </div>
+            )}
+          </div>
+
+          {/* Tendencia 30 días */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h4 className="font-semibold text-slate-800 mb-4 text-sm">Tendencia últimos 30 días</h4>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={data.tendencia || []} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="fecha" tickFormatter={(v: string) => v?.slice(5)} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.1)', fontSize: 11 }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                <Bar dataKey="presentes"  name="Presentes"  fill="#10b981" radius={[2,2,0,0]} stackId="a" />
+                <Bar dataKey="tardanzas"  name="Tardanzas"  fill="#f59e0b" radius={[0,0,0,0]} stackId="a" />
+                <Bar dataKey="ausentes"   name="Ausentes"   fill="#ef4444" radius={[0,0,0,0]} stackId="a" />
+                <Bar dataKey="vacaciones" name="Vacaciones" fill="#3b82f6" radius={[2,2,0,0]} stackId="a" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Por departamento */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-slate-200 bg-slate-50">
+              <h4 className="font-semibold text-slate-800 text-sm">Por departamento — {data.fecha_consultada}</h4>
+            </div>
+            <table className="w-full">
+              <thead><tr className="border-b border-slate-200">
+                {['Departamento','Total','Presentes','Tardanzas','Ausentes','Vacaciones','% Asistencia'].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {(data.por_departamento || []).map((d: any, i: number) => (
+                  <tr key={i} className={`hover:bg-slate-50 ${Number(d.pct_asistencia) < 75 ? 'bg-red-50' : Number(d.pct_asistencia) < 90 ? 'bg-amber-50' : ''}`}>
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{d.departamento}</td>
+                    <td className="px-4 py-2.5 text-sm text-slate-500">{d.total}</td>
+                    <td className="px-4 py-2.5 text-sm text-emerald-600 font-medium">{d.presentes}</td>
+                    <td className="px-4 py-2.5 text-sm text-amber-600 font-medium">{d.tardanzas}</td>
+                    <td className="px-4 py-2.5 text-sm text-red-600 font-medium">{d.ausentes}</td>
+                    <td className="px-4 py-2.5 text-sm text-blue-600 font-medium">{d.vacaciones}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-100 rounded-full h-1.5 max-w-20">
+                          <div className={`h-1.5 rounded-full ${Number(d.pct_asistencia) >= 90 ? 'bg-emerald-500' : Number(d.pct_asistencia) >= 75 ? 'bg-amber-400' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min(Number(d.pct_asistencia), 100)}%` }} />
+                        </div>
+                        <span className={`text-sm font-bold ${Number(d.pct_asistencia) >= 90 ? 'text-emerald-600' : Number(d.pct_asistencia) >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {d.pct_asistencia}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Top tardanzas y ausencias */}
+          <div className="grid grid-cols-2 gap-5">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
+                <h4 className="font-semibold text-amber-800 text-sm">⏰ Top 10 empleados con más tardanzas (mes)</h4>
+              </div>
+              <table className="w-full">
+                <thead><tr className="border-b border-slate-200">
+                  {['Empleado','Depto.','Tardanzas','Prom. min'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(data.top_tardanzas || []).map((e: any, i: number) => (
+                    <tr key={i} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{e.empleado}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-24">{e.departamento}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${Number(e.tardanzas_mes) >= 5 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {e.tardanzas_mes}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-500 text-center">{e.promedio_min} min</td>
+                    </tr>
+                  ))}
+                  {!(data.top_tardanzas?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin tardanzas este mes</td></tr>}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 bg-red-50 border-b border-red-100">
+                <h4 className="font-semibold text-red-800 text-sm">❌ Top 10 empleados con más ausencias (mes)</h4>
+              </div>
+              <table className="w-full">
+                <thead><tr className="border-b border-slate-200">
+                  {['Empleado','Depto.','Ausencias','Injust.'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(data.top_ausencias || []).map((e: any, i: number) => (
+                    <tr key={i} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{e.empleado}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-24">{e.departamento}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${Number(e.ausencias_mes) >= 3 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {e.ausencias_mes}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {Number(e.injustificadas) > 0
+                          ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{e.injustificadas}</span>
+                          : <span className="text-emerald-500 text-xs">✓</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {!(data.top_ausencias?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin ausencias este mes</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
