@@ -1144,7 +1144,7 @@ export default function RecruitmentView() {
                   ))}
                 </div>
                 {inputType === 'pdf' ? (
-                  {/* Batch / Single toggle */}
+                  <>
                   <div className="flex items-center gap-2 mb-2">
                     <button type="button" onClick={() => { setBatchMode(false); setPdfFiles([]); setPdfFile(null); }}
                       className={`px-3 py-1 text-xs rounded-lg font-medium border ${!batchMode ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>
@@ -1214,6 +1214,7 @@ export default function RecruitmentView() {
                       </div>
                     </div>
                   )}
+                  </>
                 ) : (
                   <textarea value={cvTexto} onChange={e => setCvTexto(e.target.value)} rows={6}
                     placeholder="Pegá el contenido del CV aquí..."
