@@ -38,15 +38,9 @@ const pool = new Pool({
   max: 10,
 });
 
-// Set UTF-8 encoding on every new connection
-pool.on("connect", (client) => {
-  client.query("SET client_encoding = 'UTF8'");
-});
-
 async function query(sql: string, params?: any[]) {
   const client = await pool.connect();
   try {
-    await client.query("SET client_encoding = 'UTF8'");
     const res = await client.query(sql, params);
     return res;
   } finally {
@@ -1295,55 +1289,32 @@ app.get("/api/reportes/capacitaciones", async (req, res) => {
 app.get("/api/reportes/metricas-personal", async (req, res) => {
   try {
     const { dept } = req.query;
-    const deptFilter = dept ? `AND e.id_departamento = ${Number(dept)}` : "";
-
-    // Empleados con métricas individuales
+    const deptFilter = dept ? `AND e.id_departamento = ${dept}` : "";
     const r = await query(`
       SELECT e.id AS id_empleado, e.codigo_empleado,
              e.nombre || ' ' || e.apellido AS empleado,
              d.nombre AS departamento, c.titulo AS cargo,
-             ROUND(AVG(ev.promedio), 2)                AS promedio_evaluacion,
-             ROUND(AVG(ev.promedio) * 20, 1)           AS puntaje_100,
-             SUM(ev.proyectos_asignados)               AS proyectos_asignados,
-             SUM(ev.proyectos_entregados)              AS proyectos_entregados,
-             ROUND(SUM(ev.proyectos_entregados)::numeric /
-               NULLIF(SUM(ev.proyectos_asignados),0)*100, 1) AS pct_entrega,
-             COUNT(ra_tard.id)  AS tardanzas_mes,
-             COUNT(ra_aus.id)   AS ausencias_mes
+             ROUND(AVG(ev.promedio),2)             AS promedio_evaluacion,
+             SUM(ev.proyectos_asignados)           AS proyectos_asignados,
+             SUM(ev.proyectos_entregados)          AS proyectos_entregados,
+             ROUND(SUM(ev.proyectos_entregados)::numeric/NULLIF(SUM(ev.proyectos_asignados),0)*100,1) AS pct_entrega,
+             COUNT(ra_asis.id)                     AS dias_presente,
+             COUNT(ra_tard.id)                     AS tardanzas_mes,
+             COUNT(ra_aus.id)                      AS ausencias_mes
       FROM empleados e
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN cargos c ON c.id = e.id_cargo
-      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id
-      LEFT JOIN registros_asistencia ra_tard ON ra_tard.id_empleado = e.id
-          AND ra_tard.fecha >= DATE_TRUNC('month', CURRENT_DATE)
-          AND ra_tard.estado = 'Tardanza'
-      LEFT JOIN registros_asistencia ra_aus ON ra_aus.id_empleado = e.id
-          AND ra_aus.fecha >= DATE_TRUNC('month', CURRENT_DATE)
-          AND ra_aus.estado = 'Ausente'
-      WHERE e.estado = 'Activo' ${deptFilter}
+      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id AND ev.estado='Cerrado'
+      LEFT JOIN registros_asistencia ra_asis ON ra_asis.id_empleado=e.id
+          AND ra_asis.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_asis.estado='Presente'
+      LEFT JOIN registros_asistencia ra_tard ON ra_tard.id_empleado=e.id
+          AND ra_tard.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_tard.estado='Tardanza'
+      LEFT JOIN registros_asistencia ra_aus ON ra_aus.id_empleado=e.id
+          AND ra_aus.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_aus.estado='Ausente'
+      WHERE e.estado='Activo' ${deptFilter}
       GROUP BY e.id, e.codigo_empleado, e.nombre, e.apellido, d.nombre, c.titulo
-      ORDER BY promedio_evaluacion DESC NULLS LAST`);
-
-    // Resumen por departamento
-    const porDept = await query(`
-      SELECT
-        d.nombre AS departamento,
-        COUNT(DISTINCT e.id) AS total_empleados,
-        ROUND(AVG(ev.promedio), 2)       AS promedio_evaluacion,
-        ROUND(AVG(ev.promedio) * 20, 1)  AS puntaje_100,
-        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 4.0) AS excelente,
-        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 3.0 AND ev.promedio < 4.0) AS bueno,
-        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 2.0 AND ev.promedio < 3.0) AS regular,
-        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio < 2.0)  AS bajo,
-        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio IS NULL) AS sin_evaluacion
-      FROM empleados e
-      LEFT JOIN departamentos d ON d.id = e.id_departamento
-      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id
-      WHERE e.estado = 'Activo' ${deptFilter}
-      GROUP BY d.nombre
-      ORDER BY promedio_evaluacion DESC NULLS LAST`);
-
-    res.json({ empleados: r.rows, por_departamento: porDept.rows });
+      ORDER BY promedio_evaluacion ASC NULLS LAST`);
+    res.json({ empleados: r.rows });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1476,120 +1447,6 @@ app.get("/api/reportes/vacaciones", async (req, res) => {
         diasTomadosAnio,
         empleadosAlerta: alerta15.length,
       }
-    });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-
-// R7: Reporte de estados de asistencia (conteos por estado)
-app.get("/api/reportes/estados-asistencia", async (req, res) => {
-  try {
-    const { dept, fecha } = req.query;
-    const deptFilter = dept ? `AND e.id_departamento = ${Number(dept)}` : "";
-
-    // Target date
-    const lastDate = await query(`SELECT MAX(fecha)::DATE::TEXT AS ultima FROM registros_asistencia`);
-    const targetDate = fecha ? String(fecha) : (lastDate.rows[0]?.ultima || new Date().toISOString().slice(0,10));
-
-    // Conteo por estado en el día
-    const porEstado = await query(`
-      SELECT
-        ra.estado,
-        COUNT(*) AS cantidad,
-        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS porcentaje
-      FROM registros_asistencia ra
-      JOIN empleados e ON e.id = ra.id_empleado
-      WHERE ra.fecha = $1 ${deptFilter}
-      GROUP BY ra.estado
-      ORDER BY cantidad DESC`, [targetDate]);
-
-    // Conteo de empleados activos sin registro hoy (no marcaron)
-    const sinRegistro = await query(`
-      SELECT COUNT(*) AS cantidad
-      FROM empleados e
-      WHERE e.estado = 'Activo'
-        ${deptFilter}
-        AND NOT EXISTS (
-          SELECT 1 FROM registros_asistencia ra
-          WHERE ra.id_empleado = e.id AND ra.fecha = $1
-        )`, [targetDate]);
-
-    // Tendencia últimos 30 días
-    const tendencia = await query(`
-      SELECT
-        ra.fecha::DATE::TEXT AS fecha,
-        COUNT(*) FILTER(WHERE ra.estado='Presente')   AS presentes,
-        COUNT(*) FILTER(WHERE ra.estado='Tardanza')   AS tardanzas,
-        COUNT(*) FILTER(WHERE ra.estado='Ausente')    AS ausentes,
-        COUNT(*) FILTER(WHERE ra.estado='Vacaciones') AS vacaciones,
-        ROUND(COUNT(*) FILTER(WHERE ra.estado='Presente') * 100.0 / NULLIF(COUNT(*),0), 1) AS pct_asistencia
-      FROM registros_asistencia ra
-      JOIN empleados e ON e.id = ra.id_empleado
-      WHERE ra.fecha >= $1::DATE - INTERVAL '30 days'
-        AND ra.fecha <= $1::DATE
-        ${deptFilter}
-      GROUP BY ra.fecha
-      ORDER BY ra.fecha ASC`, [targetDate]);
-
-    // Por departamento en el día
-    const porDepartamento = await query(`
-      SELECT
-        d.nombre AS departamento,
-        COUNT(*) AS total,
-        COUNT(*) FILTER(WHERE ra.estado='Presente')   AS presentes,
-        COUNT(*) FILTER(WHERE ra.estado='Tardanza')   AS tardanzas,
-        COUNT(*) FILTER(WHERE ra.estado='Ausente')    AS ausentes,
-        COUNT(*) FILTER(WHERE ra.estado='Vacaciones') AS vacaciones,
-        ROUND(COUNT(*) FILTER(WHERE ra.estado='Presente') * 100.0 / NULLIF(COUNT(*),0),1) AS pct_asistencia
-      FROM registros_asistencia ra
-      JOIN empleados e ON e.id = ra.id_empleado
-      JOIN departamentos d ON d.id = e.id_departamento
-      WHERE ra.fecha = $1 ${deptFilter}
-      GROUP BY d.nombre
-      ORDER BY pct_asistencia ASC`, [targetDate]);
-
-    // Empleados con más tardanzas en el mes actual
-    const topTardanzas = await query(`
-      SELECT
-        e.nombre || ' ' || e.apellido AS empleado,
-        d.nombre AS departamento,
-        COUNT(*) AS tardanzas_mes,
-        ROUND(AVG(ra.minutos_tardanza),0) AS promedio_min
-      FROM registros_asistencia ra
-      JOIN empleados e ON e.id = ra.id_empleado
-      JOIN departamentos d ON d.id = e.id_departamento
-      WHERE ra.estado = 'Tardanza'
-        AND ra.fecha >= DATE_TRUNC('month', CURRENT_DATE)
-        ${deptFilter}
-      GROUP BY e.id, e.nombre, e.apellido, d.nombre
-      ORDER BY tardanzas_mes DESC
-      LIMIT 10`, []);
-
-    // Empleados con más ausencias en el mes actual
-    const topAusencias = await query(`
-      SELECT
-        e.nombre || ' ' || e.apellido AS empleado,
-        d.nombre AS departamento,
-        COUNT(*) AS ausencias_mes,
-        COUNT(*) FILTER(WHERE NOT ra.justificado) AS injustificadas
-      FROM registros_asistencia ra
-      JOIN empleados e ON e.id = ra.id_empleado
-      JOIN departamentos d ON d.id = e.id_departamento
-      WHERE ra.estado = 'Ausente'
-        AND ra.fecha >= DATE_TRUNC('month', CURRENT_DATE)
-        ${deptFilter}
-      GROUP BY e.id, e.nombre, e.apellido, d.nombre
-      ORDER BY ausencias_mes DESC
-      LIMIT 10`, []);
-
-    res.json({
-      fecha_consultada: targetDate,
-      por_estado: porEstado.rows,
-      sin_registro: Number(sinRegistro.rows[0]?.cantidad || 0),
-      tendencia: tendencia.rows,
-      por_departamento: porDepartamento.rows,
-      top_tardanzas: topTardanzas.rows,
-      top_ausencias: topAusencias.rows,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
