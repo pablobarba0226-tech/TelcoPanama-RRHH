@@ -160,10 +160,26 @@ export default function RecruitmentView() {
     for (let i = 0; i < pdfFiles.length; i++) {
       const file = pdfFiles[i];
       setBatchProgress({ done: i, total: pdfFiles.length, current: file.name });
-      const fd = new FormData();
-      fd.append('pdf', file);
-      fd.append('id_vacante', String(analyzeVacanteId));
-      await fetch('/api/candidatos/analizar', { method: 'POST', body: fd }).catch(() => {});
+      try {
+        // Convert to base64 — same format the server expects
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = () => reject(new Error('Error leyendo archivo'));
+          reader.readAsDataURL(file);
+        });
+        await fetch('/api/candidatos/analizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_vacante: analyzeVacanteId,
+            pdfBase64: base64,
+            nombre_archivo: file.name,
+          }),
+        });
+      } catch (err) {
+        console.error('Error procesando', file.name, err);
+      }
     }
     setBatchProgress({ done: pdfFiles.length, total: pdfFiles.length, current: 'Completado' });
     await cargarVacantes();
