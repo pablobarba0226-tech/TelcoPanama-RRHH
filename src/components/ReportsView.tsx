@@ -62,7 +62,7 @@ function EmpLink({ emp, onNavigate, tab = 'asistencia' }: { emp: any; onNavigate
 }
 
 export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn }) {
-  const [tab, setTab] = useState<'r1'|'r2'|'r3'|'r4'|'r5'|'r6'|'r7'>('r1');
+  const [tab, setTab] = useState<'r0'|'r1'|'r2'|'r3'|'r4'|'r5'|'r6'|'r7'>('r0');
   const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [filterDept, setFilterDept] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
@@ -82,10 +82,12 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
   useEffect(() => {
     setPage(1);
     setFilterRango('');
+    setFilterEstado('');
     cargarReporte();
   }, [tab, filterDept, filterFecha, filterEstado]);
 
   const ENDPOINTS: Record<string, string> = {
+    r0: '/api/reportes/resumen-general',
     r1: '/api/reportes/asistencia-dia-anterior',
     r2: '/api/reportes/asistencia-mensual',
     r3: '/api/reportes/capacitaciones',
@@ -176,6 +178,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
   }
 
     const TABS = [
+    { id: 'r0', label: 'Resumen general', icon: '📊' },
     { id: 'r1', label: 'Asistencia diaria',    icon: '📅' },
     { id: 'r2', label: '% Asistencia mensual', icon: '📊' },
     { id: 'r3', label: 'Capacitaciones',        icon: '🎓' },
@@ -273,7 +276,256 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
 
       {loading && <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">Cargando reporte...</div>}
 
-      {/* ── R1: Asistencia diaria ─────────────────────────────────────────────── */}
+            {/* ── R0: Resumen General ─────────────────────────────────────────────── */}
+      {!loading && tab === 'r0' && data && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-5">
+            {/* Empleados */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">👥</span> Personal
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Total empleados', value: data.empleados?.total || 0, color: 'text-slate-800', bg: 'bg-slate-50' },
+                  { label: 'Activos', value: data.empleados?.activos || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'En vacaciones', value: data.empleados?.en_vacaciones || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
+                  { label: 'Inactivos', value: data.empleados?.inactivos || 0, color: 'text-slate-500', bg: 'bg-slate-100' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Asistencia hoy */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">📅</span> Asistencia — último día
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Presentes', value: data.asistencia_hoy?.presentes || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'Tardanzas', value: data.asistencia_hoy?.tardanzas || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Ausentes', value: data.asistencia_hoy?.ausentes || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                  { label: '% Asistencia', value: `${data.asistencia_hoy?.pct_asistencia || 0}%`, color: 'text-blue-700', bg: 'bg-blue-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+              {data.asistencia_hoy?.prom_tardanza > 0 && (
+                <p className="text-xs text-amber-700 mt-3 bg-amber-50 rounded-lg px-3 py-2">
+                  ⏰ Tardanza promedio este mes: <strong>{data.asistencia_hoy.prom_tardanza} min</strong>
+                </p>
+              )}
+            </div>
+            {/* Mes actual */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">📆</span> Mes actual
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Tardanzas del mes', value: data.mes_actual?.tardanzas_mes || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Ausencias del mes', value: data.mes_actual?.ausencias_mes || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Capacitaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">🎓</span> Capacitaciones
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Total', value: data.capacitaciones?.total || 0, color: 'text-slate-800', bg: 'bg-slate-50' },
+                  { label: 'Completadas', value: data.capacitaciones?.completadas || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'En curso', value: data.capacitaciones?.en_curso || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
+                  { label: 'Programadas', value: data.capacitaciones?.programadas || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Vacaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">🏖️</span> Vacaciones
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Con +15 días pend.', value: data.vacaciones?.criticas || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                  { label: 'Días pend. promedio', value: data.vacaciones?.promedio_pendientes || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Costo pasivo (USD)', value: `$${Number(data.vacaciones?.costo_pasivo||0).toLocaleString()}`, color: 'text-purple-700', bg: 'bg-purple-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Evaluaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">📈</span> Desempeño
+              </h3>
+              <div className="bg-slate-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-slate-500 mb-1">Promedio global de evaluaciones</p>
+                <p className={`text-4xl font-black ${
+                  (data.evaluaciones?.promedio_global||0)>=4 ? 'text-emerald-600' :
+                  (data.evaluaciones?.promedio_global||0)>=3 ? 'text-blue-600' :
+                  (data.evaluaciones?.promedio_global||0)>=2 ? 'text-amber-600' : 'text-red-600'
+                }`}>{data.evaluaciones?.promedio_global || '—'}<span className="text-xl font-normal text-slate-400">/5</span></p>
+                {data.evaluaciones?.promedio_global && (
+                  <p className={`text-sm font-semibold mt-1 ${
+                    data.evaluaciones.promedio_global>=4 ? 'text-emerald-600' :
+                    data.evaluaciones.promedio_global>=3 ? 'text-blue-600' :
+                    data.evaluaciones.promedio_global>=2 ? 'text-amber-600' : 'text-red-600'
+                  }`}>{(data.evaluaciones.promedio_global*20).toFixed(0)}% sobre 100</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
+            💡 Este panel muestra un resumen ejecutivo de todos los módulos.
+            Usá las pestañas superiores para ver reportes específicos con filtros por departamento, fecha y estado.
+          </div>
+        </div>
+      )}
+
+      {/* ── R0: Resumen General ──────────────────────────────────────────── */}
+      {!loading && tab === 'r0' && data && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-5">
+            {/* Empleados */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span>👥</span> Personal
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Total empleados', value: data.empleados?.total || 0, color: 'text-slate-800', bg: 'bg-slate-50' },
+                  { label: 'Activos', value: data.empleados?.activos || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'En vacaciones', value: data.empleados?.en_vacaciones || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
+                  { label: 'Inactivos', value: data.empleados?.inactivos || 0, color: 'text-slate-500', bg: 'bg-slate-100' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Asistencia */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span>📅</span> Asistencia — último día registrado
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Presentes', value: data.asistencia_hoy?.presentes || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'Tardanzas', value: data.asistencia_hoy?.tardanzas || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Ausentes', value: data.asistencia_hoy?.ausentes || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                  { label: '% Asistencia', value: `${data.asistencia_hoy?.pct_asistencia || 0}%`, color: 'text-blue-700', bg: 'bg-blue-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+              {Number(data.asistencia_hoy?.prom_tardanza||0) > 0 && (
+                <p className="text-xs text-amber-700 mt-3 bg-amber-50 rounded-lg px-3 py-2">
+                  Tardanza promedio: <strong>{data.asistencia_hoy.prom_tardanza} min</strong>
+                </p>
+              )}
+            </div>
+            {/* Mes actual */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4"><span>📆</span> Mes actual</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Tardanzas del mes', value: data.mes_actual?.tardanzas_mes || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Ausencias del mes', value: data.mes_actual?.ausencias_mes || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Capacitaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4"><span>🎓</span> Capacitaciones</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Total', value: data.capacitaciones?.total || 0, color: 'text-slate-800', bg: 'bg-slate-50' },
+                  { label: 'Completadas', value: data.capacitaciones?.completadas || 0, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'En curso', value: data.capacitaciones?.en_curso || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
+                  { label: 'Programadas', value: data.capacitaciones?.programadas || 0, color: 'text-amber-700', bg: 'bg-amber-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Vacaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4">Vacaciones pendientes</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Con +15 días pend.', value: data.vacaciones?.criticas || 0, color: 'text-red-700', bg: 'bg-red-50' },
+                  { label: 'Días pend. promedio', value: data.vacaciones?.promedio_pendientes || '—', color: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Costo pasivo', value: `$${Number(data.vacaciones?.costo_pasivo||0).toLocaleString()}`, color: 'text-purple-700', bg: 'bg-purple-50' },
+                ].map(k => (
+                  <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                    <p className="text-xs text-slate-500">{k.label}</p>
+                    <p className={`text-lg font-bold ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Evaluaciones */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 mb-4">Desempeño general</h3>
+              <div className="bg-slate-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-slate-500 mb-1">Promedio global de evaluaciones</p>
+                <p className={`text-4xl font-black ${
+                  Number(data.evaluaciones?.promedio_global||0)>=4 ? 'text-emerald-600' :
+                  Number(data.evaluaciones?.promedio_global||0)>=3 ? 'text-blue-600' :
+                  Number(data.evaluaciones?.promedio_global||0)>=2 ? 'text-amber-600' : 'text-red-600'
+                }`}>{data.evaluaciones?.promedio_global || '—'}<span className="text-xl font-normal text-slate-400">/5</span></p>
+                {data.evaluaciones?.promedio_global && (
+                  <p className="text-sm font-semibold mt-1 text-slate-500">
+                    = {(Number(data.evaluaciones.promedio_global)*20).toFixed(0)}% sobre 100
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
+            Resumen ejecutivo de todos los modulos. Usá las pestañas para ver reportes especificos con filtros por departamento, fecha y estado.
+          </div>
+        </div>
+      )}
+
+            {/* ── R1: Asistencia diaria ─────────────────────────────────────────────── */}
       {!loading && tab === 'r1' && data && data.registros !== undefined && (
         <div className="space-y-4">
           <div className="grid grid-cols-4 gap-4">
