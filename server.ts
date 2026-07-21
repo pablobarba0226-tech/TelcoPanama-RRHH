@@ -38,9 +38,15 @@ const pool = new Pool({
   max: 10,
 });
 
+// Set UTF-8 encoding on every new connection
+pool.on("connect", (client) => {
+  client.query("SET client_encoding = 'UTF8'");
+});
+
 async function query(sql: string, params?: any[]) {
   const client = await pool.connect();
   try {
+    await client.query("SET client_encoding = 'UTF8'");
     const res = await client.query(sql, params);
     return res;
   } finally {
@@ -659,14 +665,33 @@ app.get("/api/capacitaciones/:id/participantes", async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/capacitaciones/:id/participantes/departamento — inscribir todos de un depto
+// POST /api/capacitaciones/:id/participantes/departamento — inscribir empleados activos de un depto
 app.post("/api/capacitaciones/:id/participantes/departamento", async (req, res) => {
   try {
     const { id_departamento } = req.body;
     if (!id_departamento) return res.status(400).json({ error: "id_departamento requerido" });
-    const emps = await query(
-      `SELECT id FROM empleados WHERE id_departamento=$1 AND estado='Activo'`,
-      [id_departamento]);
+
+    // Get capacitación dates to check who works during that period
+    const cap = await query(`SELECT fecha_inicio, fecha_fin, modalidad FROM capacitaciones WHERE id=$1`, [req.params.id]);
+    const capData = cap.rows[0];
+
+    // Only include employees who ARE working (Activo) in that dept
+    // Exclude employees on vacation during the training period if dates are set
+    let sql = `SELECT DISTINCT e.id, e.nombre, e.apellido FROM empleados e
+      WHERE e.id_departamento=$1 AND e.estado='Activo'`;
+    const params: any[] = [id_departamento];
+
+    // If capacitación has dates, exclude employees on approved vacation leave during that period
+    if (capData?.fecha_inicio && capData?.fecha_fin) {
+      sql += ` AND NOT EXISTS (
+        SELECT 1 FROM solicitudes_permiso sp
+        WHERE sp.id_empleado=e.id AND sp.estado='Aprobado' AND sp.tipo='Vacaciones'
+        AND sp.fecha_inicio <= $2::date AND sp.fecha_fin >= $3::date
+      )`;
+      params.push(capData.fecha_inicio, capData.fecha_fin);
+    }
+
+    const emps = await query(sql, params);
     let inserted = 0;
     for (const e of emps.rows) {
       await query(
@@ -675,7 +700,16 @@ app.post("/api/capacitaciones/:id/participantes/departamento", async (req, res) 
         [req.params.id, e.id]);
       inserted++;
     }
-    res.json({ inserted, total: emps.rows.length });
+    const excluidos = await query(
+      `SELECT COUNT(*) AS total FROM empleados WHERE id_departamento=$1 AND estado='Activo'`,
+      [id_departamento]);
+    const totalActivos = Number(excluidos.rows[0].total);
+    res.json({
+      inserted,
+      total: totalActivos,
+      excluidos_vacaciones: totalActivos - inserted,
+      mensaje: `${inserted} empleados inscritos${totalActivos-inserted>0 ? ` (${totalActivos-inserted} excluidos por vacaciones durante el período)` : ''}`
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -818,7 +852,8 @@ app.get("/api/vacantes", async (_req, res) => {
         v.estado,
         d.nombre AS departamento_nombre,
         COUNT(c.id)::int AS total_candidatos,
-        COUNT(c.id) FILTER(WHERE c.estado='Contratado')::int AS contratados
+        COUNT(c.id) FILTER(WHERE c.estado='Contratado')::int AS contratados,
+        COUNT(c.id) FILTER(WHERE c.estado='Aprobado')::int AS aprobados_count
       FROM vacantes v
       LEFT JOIN departamentos d ON d.id = v.id_departamento
       LEFT JOIN candidatos c ON c.id_vacante = v.id
@@ -1018,37 +1053,59 @@ app.put("/api/candidatos/:id/estado", async (req, res) => {
       [estado, req.params.id]);
     const candidato = r.rows[0];
 
-    // When Aprobado: pre-create employee record from candidate data
+    // When Aprobado: create employee and optionally close vacancy
     if (estado === "Aprobado" && candidato) {
-      // Get vacancy department AND cargo
+      // Get vacancy with cargo matching by title
       const vac = candidato.id_vacante
         ? await query(`SELECT v.*, d.nombre AS dept_nombre,
-            (SELECT id FROM cargos WHERE LOWER(titulo) LIKE LOWER('%' || v.titulo || '%') 
-             AND (id_departamento = v.id_departamento OR id_departamento IS NULL) LIMIT 1) AS cargo_id
+            (SELECT c.id FROM cargos c
+             WHERE (LOWER(c.titulo) LIKE LOWER('%' || REGEXP_REPLACE(v.titulo,'\\s+','%','g') || '%')
+               OR LOWER(v.titulo) LIKE LOWER('%' || REGEXP_REPLACE(c.titulo,'\\s+','%','g') || '%'))
+             AND (c.id_departamento = v.id_departamento OR c.id_departamento IS NULL)
+             ORDER BY c.id_departamento IS NULL LIMIT 1) AS cargo_id,
+            (SELECT COUNT(*) FROM candidatos cc WHERE cc.id_vacante=v.id AND cc.estado='Aprobado') AS aprobados_actuales
             FROM vacantes v LEFT JOIN departamentos d ON d.id = v.id_departamento WHERE v.id=$1`,
             [candidato.id_vacante])
         : { rows: [] };
       const vacante = vac.rows[0];
 
-      // Check if employee already exists
+      // Create employee if not exists
       const exists = candidato.cedula
         ? await query("SELECT id FROM empleados WHERE cedula=$1", [candidato.cedula])
         : { rows: [] };
 
+      let empId: number | null = null;
       if (!exists.rows.length) {
         const count = await query("SELECT COUNT(*) FROM empleados");
         const code = "EMP-" + String(Number(count.rows[0].count) + 1).padStart(4, "0");
-        await query(`
+        const salario = vacante?.salario_ofrecido || 0;
+        const inserted = await query(`
           INSERT INTO empleados (codigo_empleado, nombre, apellido, cedula,
             correo_corporativo, telefono, id_departamento, id_cargo,
             fecha_ingreso, tipo_contrato, jornada, salario_base, estado, modalidad)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_DATE,'Indefinido','Completa',0,'Activo','Presencial')
-          ON CONFLICT (cedula) DO NOTHING`,
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_DATE,'Indefinido','Completa',$9,'Activo','Presencial')
+          ON CONFLICT (cedula) DO NOTHING RETURNING id`,
           [code, candidato.nombre, candidato.apellido || "",
            candidato.cedula || code,
            candidato.correo || null, candidato.telefono || null,
            vacante?.id_departamento || null,
-           vacante?.cargo_id || null]);
+           vacante?.cargo_id || null, salario]);
+        empId = inserted.rows[0]?.id || null;
+      } else {
+        empId = exists.rows[0].id;
+        // Update cargo if empty
+        if (vacante?.cargo_id) {
+          await query("UPDATE empleados SET id_cargo=$1 WHERE id=$2 AND (id_cargo IS NULL OR id_cargo=0)",
+            [vacante.cargo_id, empId]);
+        }
+      }
+
+      // Check if vacancy is now full and close it
+      if (vacante && vacante.cantidad) {
+        const newCount = Number(vacante.aprobados_actuales) + 1; // +1 for current approval
+        if (newCount >= Number(vacante.cantidad)) {
+          await query("UPDATE vacantes SET estado='Cerrada' WHERE id=$1", [candidato.id_vacante]);
+        }
       }
     }
 
@@ -1289,32 +1346,55 @@ app.get("/api/reportes/capacitaciones", async (req, res) => {
 app.get("/api/reportes/metricas-personal", async (req, res) => {
   try {
     const { dept } = req.query;
-    const deptFilter = dept ? `AND e.id_departamento = ${dept}` : "";
+    const deptFilter = dept ? `AND e.id_departamento = ${Number(dept)}` : "";
+
+    // Empleados con métricas individuales
     const r = await query(`
       SELECT e.id AS id_empleado, e.codigo_empleado,
              e.nombre || ' ' || e.apellido AS empleado,
              d.nombre AS departamento, c.titulo AS cargo,
-             ROUND(AVG(ev.promedio),2)             AS promedio_evaluacion,
-             SUM(ev.proyectos_asignados)           AS proyectos_asignados,
-             SUM(ev.proyectos_entregados)          AS proyectos_entregados,
-             ROUND(SUM(ev.proyectos_entregados)::numeric/NULLIF(SUM(ev.proyectos_asignados),0)*100,1) AS pct_entrega,
-             COUNT(ra_asis.id)                     AS dias_presente,
-             COUNT(ra_tard.id)                     AS tardanzas_mes,
-             COUNT(ra_aus.id)                      AS ausencias_mes
+             ROUND(AVG(ev.promedio), 2)                AS promedio_evaluacion,
+             ROUND(AVG(ev.promedio) * 20, 1)           AS puntaje_100,
+             SUM(ev.proyectos_asignados)               AS proyectos_asignados,
+             SUM(ev.proyectos_entregados)              AS proyectos_entregados,
+             ROUND(SUM(ev.proyectos_entregados)::numeric /
+               NULLIF(SUM(ev.proyectos_asignados),0)*100, 1) AS pct_entrega,
+             COUNT(ra_tard.id)  AS tardanzas_mes,
+             COUNT(ra_aus.id)   AS ausencias_mes
       FROM empleados e
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN cargos c ON c.id = e.id_cargo
-      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id AND ev.estado='Cerrado'
-      LEFT JOIN registros_asistencia ra_asis ON ra_asis.id_empleado=e.id
-          AND ra_asis.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_asis.estado='Presente'
-      LEFT JOIN registros_asistencia ra_tard ON ra_tard.id_empleado=e.id
-          AND ra_tard.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_tard.estado='Tardanza'
-      LEFT JOIN registros_asistencia ra_aus ON ra_aus.id_empleado=e.id
-          AND ra_aus.fecha >= DATE_TRUNC('month',CURRENT_DATE) AND ra_aus.estado='Ausente'
-      WHERE e.estado='Activo' ${deptFilter}
+      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id
+      LEFT JOIN registros_asistencia ra_tard ON ra_tard.id_empleado = e.id
+          AND ra_tard.fecha >= DATE_TRUNC('month', CURRENT_DATE)
+          AND ra_tard.estado = 'Tardanza'
+      LEFT JOIN registros_asistencia ra_aus ON ra_aus.id_empleado = e.id
+          AND ra_aus.fecha >= DATE_TRUNC('month', CURRENT_DATE)
+          AND ra_aus.estado = 'Ausente'
+      WHERE e.estado = 'Activo' ${deptFilter}
       GROUP BY e.id, e.codigo_empleado, e.nombre, e.apellido, d.nombre, c.titulo
-      ORDER BY promedio_evaluacion ASC NULLS LAST`);
-    res.json({ empleados: r.rows });
+      ORDER BY promedio_evaluacion DESC NULLS LAST`);
+
+    // Resumen por departamento
+    const porDept = await query(`
+      SELECT
+        d.nombre AS departamento,
+        COUNT(DISTINCT e.id) AS total_empleados,
+        ROUND(AVG(ev.promedio), 2)       AS promedio_evaluacion,
+        ROUND(AVG(ev.promedio) * 20, 1)  AS puntaje_100,
+        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 4.0) AS excelente,
+        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 3.0 AND ev.promedio < 4.0) AS bueno,
+        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio >= 2.0 AND ev.promedio < 3.0) AS regular,
+        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio < 2.0)  AS bajo,
+        COUNT(DISTINCT e.id) FILTER(WHERE ev.promedio IS NULL) AS sin_evaluacion
+      FROM empleados e
+      LEFT JOIN departamentos d ON d.id = e.id_departamento
+      LEFT JOIN evaluaciones_desempeno ev ON ev.id_empleado = e.id
+      WHERE e.estado = 'Activo' ${deptFilter}
+      GROUP BY d.nombre
+      ORDER BY promedio_evaluacion DESC NULLS LAST`);
+
+    res.json({ empleados: r.rows, por_departamento: porDept.rows });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1447,6 +1527,202 @@ app.get("/api/reportes/vacaciones", async (req, res) => {
         diasTomadosAnio,
         empleadosAlerta: alerta15.length,
       }
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+
+// R7: Reporte de estados de asistencia (conteos por estado)
+app.get("/api/reportes/estados-asistencia", async (req, res) => {
+  try {
+    const { dept, fecha } = req.query;
+    const deptFilter = dept ? `AND e.id_departamento = ${Number(dept)}` : "";
+
+    // Target date
+    const lastDate = await query(`SELECT MAX(fecha)::DATE::TEXT AS ultima FROM registros_asistencia`);
+    const targetDate = fecha ? String(fecha) : (lastDate.rows[0]?.ultima || new Date().toISOString().slice(0,10));
+
+    // Conteo por estado en el día
+    const porEstado = await query(`
+      SELECT
+        ra.estado,
+        COUNT(*) AS cantidad,
+        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS porcentaje
+      FROM registros_asistencia ra
+      JOIN empleados e ON e.id = ra.id_empleado
+      WHERE ra.fecha = $1 ${deptFilter}
+      GROUP BY ra.estado
+      ORDER BY cantidad DESC`, [targetDate]);
+
+    // Conteo de empleados activos sin registro hoy (no marcaron)
+    const sinRegistro = await query(`
+      SELECT COUNT(*) AS cantidad
+      FROM empleados e
+      WHERE e.estado = 'Activo'
+        ${deptFilter}
+        AND NOT EXISTS (
+          SELECT 1 FROM registros_asistencia ra
+          WHERE ra.id_empleado = e.id AND ra.fecha = $1
+        )`, [targetDate]);
+
+    // Tendencia últimos 30 días
+    const tendencia = await query(`
+      SELECT
+        ra.fecha::DATE::TEXT AS fecha,
+        COUNT(*) FILTER(WHERE ra.estado='Presente')   AS presentes,
+        COUNT(*) FILTER(WHERE ra.estado='Tardanza')   AS tardanzas,
+        COUNT(*) FILTER(WHERE ra.estado='Ausente')    AS ausentes,
+        COUNT(*) FILTER(WHERE ra.estado='Vacaciones') AS vacaciones,
+        ROUND(COUNT(*) FILTER(WHERE ra.estado='Presente') * 100.0 / NULLIF(COUNT(*),0), 1) AS pct_asistencia
+      FROM registros_asistencia ra
+      JOIN empleados e ON e.id = ra.id_empleado
+      WHERE ra.fecha >= $1::DATE - INTERVAL '30 days'
+        AND ra.fecha <= $1::DATE
+        ${deptFilter}
+      GROUP BY ra.fecha
+      ORDER BY ra.fecha ASC`, [targetDate]);
+
+    // Por departamento en el día
+    const porDepartamento = await query(`
+      SELECT
+        d.nombre AS departamento,
+        COUNT(*) AS total,
+        COUNT(*) FILTER(WHERE ra.estado='Presente')   AS presentes,
+        COUNT(*) FILTER(WHERE ra.estado='Tardanza')   AS tardanzas,
+        COUNT(*) FILTER(WHERE ra.estado='Ausente')    AS ausentes,
+        COUNT(*) FILTER(WHERE ra.estado='Vacaciones') AS vacaciones,
+        ROUND(COUNT(*) FILTER(WHERE ra.estado='Presente') * 100.0 / NULLIF(COUNT(*),0),1) AS pct_asistencia
+      FROM registros_asistencia ra
+      JOIN empleados e ON e.id = ra.id_empleado
+      JOIN departamentos d ON d.id = e.id_departamento
+      WHERE ra.fecha = $1 ${deptFilter}
+      GROUP BY d.nombre
+      ORDER BY pct_asistencia ASC`, [targetDate]);
+
+    // Empleados con más tardanzas en el mes actual
+    const topTardanzas = await query(`
+      SELECT
+        e.nombre || ' ' || e.apellido AS empleado,
+        d.nombre AS departamento,
+        COUNT(*) AS tardanzas_mes,
+        ROUND(AVG(ra.minutos_tardanza),0) AS promedio_min
+      FROM registros_asistencia ra
+      JOIN empleados e ON e.id = ra.id_empleado
+      JOIN departamentos d ON d.id = e.id_departamento
+      WHERE ra.estado = 'Tardanza'
+        AND ra.fecha >= DATE_TRUNC('month', CURRENT_DATE)
+        ${deptFilter}
+      GROUP BY e.id, e.nombre, e.apellido, d.nombre
+      ORDER BY tardanzas_mes DESC
+      LIMIT 10`, []);
+
+    // Empleados con más ausencias en el mes actual
+    const topAusencias = await query(`
+      SELECT
+        e.nombre || ' ' || e.apellido AS empleado,
+        d.nombre AS departamento,
+        COUNT(*) AS ausencias_mes,
+        COUNT(*) FILTER(WHERE NOT ra.justificado) AS injustificadas
+      FROM registros_asistencia ra
+      JOIN empleados e ON e.id = ra.id_empleado
+      JOIN departamentos d ON d.id = e.id_departamento
+      WHERE ra.estado = 'Ausente'
+        AND ra.fecha >= DATE_TRUNC('month', CURRENT_DATE)
+        ${deptFilter}
+      GROUP BY e.id, e.nombre, e.apellido, d.nombre
+      ORDER BY ausencias_mes DESC
+      LIMIT 10`, []);
+
+    res.json({
+      fecha_consultada: targetDate,
+      por_estado: porEstado.rows,
+      sin_registro: Number(sinRegistro.rows[0]?.cantidad || 0),
+      tendencia: tendencia.rows,
+      por_departamento: porDepartamento.rows,
+      top_tardanzas: topTardanzas.rows,
+      top_ausencias: topAusencias.rows,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+
+// Resumen general para todos los reportes
+app.get("/api/reportes/resumen-general", async (req, res) => {
+  try {
+    const dept = req.query.dept ? Number(req.query.dept) : null;
+
+    // Run each query separately with parameterized dept filter
+    const emps = await query(
+      `SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER(WHERE estado='Activo')::int AS activos,
+        COUNT(*) FILTER(WHERE estado='Vacaciones')::int AS en_vacaciones,
+        COUNT(*) FILTER(WHERE estado='Inactivo')::int AS inactivos
+       FROM empleados
+       WHERE ($1::int IS NULL OR id_departamento=$1)`,
+      [dept]);
+
+    // Last day with records
+    const lastDay = await query(`SELECT MAX(fecha)::date::text AS ultima FROM registros_asistencia`);
+    const ultimaFecha = lastDay.rows[0]?.ultima;
+
+    const asist = await query(
+      `SELECT
+        COUNT(*) FILTER(WHERE ra.estado='Presente')::int AS presentes,
+        COUNT(*) FILTER(WHERE ra.estado='Tardanza')::int AS tardanzas,
+        COUNT(*) FILTER(WHERE ra.estado='Ausente')::int AS ausentes,
+        COALESCE(ROUND(AVG(ra.minutos_tardanza) FILTER(WHERE ra.estado='Tardanza'),1),0) AS prom_tardanza,
+        COALESCE(ROUND(COUNT(*) FILTER(WHERE ra.estado='Presente')::numeric / NULLIF(COUNT(*),0)*100,1),0) AS pct_asistencia
+       FROM registros_asistencia ra
+       JOIN empleados e ON e.id=ra.id_empleado
+       WHERE ra.fecha=$1 AND ($2::int IS NULL OR e.id_departamento=$2)`,
+      [ultimaFecha, dept]);
+
+    const tard = await query(
+      `SELECT
+        COUNT(*) FILTER(WHERE ra.estado='Tardanza')::int AS tardanzas_mes,
+        COUNT(*) FILTER(WHERE ra.estado='Ausente')::int AS ausencias_mes
+       FROM registros_asistencia ra
+       JOIN empleados e ON e.id=ra.id_empleado
+       WHERE ra.fecha >= DATE_TRUNC('month', CURRENT_DATE)
+         AND ($1::int IS NULL OR e.id_departamento=$1)`,
+      [dept]);
+
+    const caps = await query(
+      `SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER(WHERE estado='Completada')::int AS completadas,
+        COUNT(*) FILTER(WHERE estado='En curso')::int AS en_curso,
+        COUNT(*) FILTER(WHERE estado='Programada')::int AS programadas
+       FROM capacitaciones`);
+
+    const vacs = await query(
+      `SELECT
+        COUNT(*) FILTER(WHERE (sv.dias_acumulados - sv.dias_tomados) > 15)::int AS criticas,
+        COALESCE(ROUND(AVG(sv.dias_acumulados - sv.dias_tomados),1), 0) AS promedio_pendientes,
+        COALESCE(ROUND(SUM(e.salario_base / 30.0 * (sv.dias_acumulados - sv.dias_tomados)),2), 0) AS costo_pasivo
+       FROM saldos_vacaciones sv
+       JOIN empleados e ON e.id=sv.id_empleado
+       WHERE ($1::int IS NULL OR e.id_departamento=$1)`,
+      [dept]);
+
+    const evals = await query(
+      `SELECT COALESCE(ROUND(AVG(
+        (ev.puntaje_liderazgo+ev.puntaje_trabajo_equipo+ev.puntaje_comunicacion+
+         ev.puntaje_iniciativa+ev.puntaje_tecnico+ev.puntaje_cumplimiento)/6.0
+       ),2), 0) AS promedio_global
+       FROM evaluaciones_desempeno ev
+       JOIN empleados e ON e.id=ev.id_empleado
+       WHERE ($1::int IS NULL OR e.id_departamento=$1)`,
+      [dept]);
+
+    res.json({
+      empleados: emps.rows[0],
+      asistencia_hoy: { ...asist.rows[0], fecha: ultimaFecha },
+      mes_actual: tard.rows[0],
+      capacitaciones: caps.rows[0],
+      vacaciones: vacs.rows[0],
+      evaluaciones: evals.rows[0],
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
