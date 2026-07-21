@@ -213,8 +213,9 @@ export default function DevelopmentView() {
     const pr = await fetch(`/api/capacitaciones/${selectedCap.id}/participantes`);
     setParticipantes(await pr.json());
     setPartBulkDept(''); setPartBulkLoading(false); cargarCaps();
-    setMsg(`✅ ${d.inserted} empleados inscritos del departamento.`);
-    setTimeout(() => setMsg(''), 3000);
+    const msg = d.mensaje || `${d.inserted} empleados inscritos`;
+    setMsg(`✅ ${msg}`);
+    setTimeout(() => setMsg(''), 5000);
   }
 
   async function actualizarParticipante(capId: number, empId: number, data: any) {
@@ -675,7 +676,7 @@ export default function DevelopmentView() {
                 {/* Bulk by department */}
                 <div className="flex gap-2 items-end pb-3 border-b border-slate-200">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-slate-500 mb-1">📂 Inscribir todo un departamento</label>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">📂 Inscribir empleados activos de un departamento <span className="text-slate-400">(excluye personal en vacaciones)</span></label>
                     <select value={partBulkDept} onChange={e => setPartBulkDept(e.target.value)}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none bg-white">
                       <option value="">Seleccione departamento...</option>
