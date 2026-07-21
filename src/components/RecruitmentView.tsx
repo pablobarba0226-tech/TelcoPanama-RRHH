@@ -376,8 +376,31 @@ export default function RecruitmentView() {
               )}
               {c.estado === 'Aprobado' && (
                 <button onClick={() => {
-                  setConvertForm({ ...emptyConvert(), nombre: c.nombre, apellido: c.apellido || '', cedula: c.cedula || '', correo_corporativo: c.correo || '', telefono: c.telefono || '', genero: c.genero || '' });
-                  setConvertErr({}); setConvertTab('personal'); setShowConvertModal(true);
+                  // Pre-fill from candidato personal data
+                  const vacanteData = vacantes.find(v => v.id === c.id_vacante) || selectedVacante;
+                  // Find matching cargo by title similarity
+                  const matchCargo = cargos.find((cargo: any) =>
+                    vacanteData?.titulo &&
+                    (cargo.titulo.toLowerCase().includes(vacanteData.titulo.toLowerCase().slice(0,10)) ||
+                     vacanteData.titulo.toLowerCase().includes(cargo.titulo.toLowerCase().slice(0,10)))
+                  );
+                  setConvertForm({
+                    ...emptyConvert(),
+                    // Personal data from CV
+                    nombre: c.nombre,
+                    apellido: c.apellido || '',
+                    cedula: c.cedula || '',
+                    correo_corporativo: c.correo || '',
+                    correo_personal: c.correo || '',
+                    telefono: c.telefono || '',
+                    genero: c.genero || '',
+                    // Labor data from vacante
+                    id_departamento: vacanteData?.id_departamento ? String(vacanteData.id_departamento) : '',
+                    id_cargo: matchCargo ? String(matchCargo.id) : '',
+                    salario_base: vacanteData?.salario_ofrecido ? String(vacanteData.salario_ofrecido) : '',
+                    modalidad: vacanteData?.modalidad || 'Presencial',
+                  });
+                  setConvertErr({}); setConvertTab('laboral'); setShowConvertModal(true);
                 }}
                   className="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-medium">
                   🏢 Registrar como empleado
