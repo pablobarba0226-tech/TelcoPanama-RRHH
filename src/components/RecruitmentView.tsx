@@ -166,8 +166,10 @@ export default function RecruitmentView() {
       await fetch('/api/candidatos/analizar', { method: 'POST', body: fd }).catch(() => {});
     }
     setBatchProgress({ done: pdfFiles.length, total: pdfFiles.length, current: 'Completado' });
-    await cargarCandidatos();
     await cargarVacantes();
+    if (selectedVacante) {
+      fetch(`/api/candidatos?vacante=${selectedVacante.id}`).then(r => r.json()).then(d => setCandidatos(Array.isArray(d) ? d : []));
+    }
     setTimeout(() => {
       setShowAnalyzeModal(false);
       setBatchProgress(null);
