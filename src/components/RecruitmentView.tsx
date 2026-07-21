@@ -4,6 +4,7 @@ import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calen
 interface Vacante {
   id: number; titulo: string; departamento_nombre?: string; descripcion?: string;
   palabras_clave?: string[]; estado: string; total_candidatos?: number;
+  cantidad?: number; aprobados_count?: number;
   fecha_apertura?: string; id_departamento?: number; salario_ofrecido?: number;
 }
 interface Candidato {
@@ -83,6 +84,9 @@ export default function RecruitmentView() {
   // CV
   const [cvTexto, setCvTexto] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{done:number,total:number,current:string}|null>(null);
   const [inputType, setInputType] = useState<'pdf' | 'text'>('pdf');
   const [analyzeVacanteId, setAnalyzeVacanteId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -147,6 +151,30 @@ export default function RecruitmentView() {
     setVForm({ titulo: '', id_departamento: '', descripcion: '', palabras_clave: '', salario_ofrecido: '', modalidad: 'Presencial', cantidad: '1' });
     await cargarVacantesFresh();
     showMsg('✅ Convocatoria creada correctamente.');
+  }
+
+  async function analizarBatch() {
+    if (!analyzeVacanteId || pdfFiles.length === 0) return;
+    setIsAnalyzing(true);
+    setBatchProgress({ done: 0, total: pdfFiles.length, current: '' });
+    for (let i = 0; i < pdfFiles.length; i++) {
+      const file = pdfFiles[i];
+      setBatchProgress({ done: i, total: pdfFiles.length, current: file.name });
+      const fd = new FormData();
+      fd.append('pdf', file);
+      fd.append('id_vacante', String(analyzeVacanteId));
+      await fetch('/api/candidatos/analizar', { method: 'POST', body: fd }).catch(() => {});
+    }
+    setBatchProgress({ done: pdfFiles.length, total: pdfFiles.length, current: 'Completado' });
+    await cargarCandidatos();
+    await cargarVacantes();
+    setTimeout(() => {
+      setShowAnalyzeModal(false);
+      setBatchProgress(null);
+      setPdfFiles([]);
+      setBatchMode(false);
+    }, 1500);
+    setIsAnalyzing(false);
   }
 
   async function analizarCV(e: React.FormEvent) {
@@ -872,6 +900,12 @@ export default function RecruitmentView() {
                     <p className="text-xs text-slate-400">CVs recibidos</p>
                   </div>
                   {v.salario_ofrecido && <div className="text-sm text-slate-500">${Number(v.salario_ofrecido).toLocaleString()}/mes</div>}
+                  <div className="text-center">
+                    <p className={`text-lg font-bold ${(v.aprobados_count||0)>=(v.cantidad||1)?'text-emerald-600':'text-purple-600'}`}>
+                      {v.aprobados_count||0}/{v.cantidad||1}
+                    </p>
+                    <p className="text-xs text-slate-400">plazas cubiertas</p>
+                  </div>
                   <div className="ml-auto flex gap-2">
                     <button onClick={() => { setAnalyzeVacanteId(v.id); setShowAnalyzeModal(true); setError(''); }}
                       className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100">
@@ -1061,6 +1095,12 @@ export default function RecruitmentView() {
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                 </div>
                 <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Plazas disponibles *</label>
+                  <input type="number" required min="1" value={vForm.cantidad} onChange={e => setVForm({ ...vForm, cantidad: e.target.value })}
+                    placeholder="1" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  <p className="text-xs text-slate-400 mt-1">Al cubrir todas las plazas se cierra automáticamente.</p>
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad</label>
                   <select value={vForm.modalidad} onChange={e => setVForm({ ...vForm, modalidad: e.target.value })}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
@@ -1104,24 +1144,76 @@ export default function RecruitmentView() {
                   ))}
                 </div>
                 {inputType === 'pdf' ? (
+                  {/* Batch / Single toggle */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <button type="button" onClick={() => { setBatchMode(false); setPdfFiles([]); setPdfFile(null); }}
+                      className={`px-3 py-1 text-xs rounded-lg font-medium border ${!batchMode ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                      1 CV
+                    </button>
+                    <button type="button" onClick={() => { setBatchMode(true); setPdfFile(null); }}
+                      className={`px-3 py-1 text-xs rounded-lg font-medium border ${batchMode ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                      📦 Carga masiva (múltiples CVs)
+                    </button>
+                  </div>
                   <div onClick={() => fileRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
-                    <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setPdfFile(f); }} />
-                    {pdfFile ? (
-                      <div className="space-y-2">
-                        <FileText className="w-10 h-10 text-blue-500 mx-auto" />
-                        <p className="text-sm font-medium text-slate-700">{pdfFile.name}</p>
-                        <button type="button" onClick={ev => { ev.stopPropagation(); setPdfFile(null); }}
-                          className="text-xs text-red-500 flex items-center gap-1 mx-auto"><Trash2 className="w-3 h-3" />Quitar</button>
-                      </div>
+                    className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50">
+                    <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt"
+                      multiple={batchMode} className="hidden"
+                      onChange={e => {
+                        if (batchMode) {
+                          setPdfFiles(Array.from(e.target.files || []));
+                        } else {
+                          const f = e.target.files?.[0]; if (f) setPdfFile(f);
+                        }
+                      }} />
+                    {batchMode ? (
+                      pdfFiles.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="w-10 h-10 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center text-lg font-bold mx-auto">{pdfFiles.length}</div>
+                          <p className="text-sm font-medium text-slate-700">{pdfFiles.length} archivo{pdfFiles.length>1?'s':''} seleccionado{pdfFiles.length>1?'s':''}</p>
+                          <div className="max-h-24 overflow-y-auto text-left bg-slate-50 rounded p-2 space-y-0.5">
+                            {pdfFiles.map((f,i) => <p key={i} className="text-xs text-slate-500 truncate">· {f.name}</p>)}
+                          </div>
+                          <button type="button" onClick={ev => { ev.stopPropagation(); setPdfFiles([]); }}
+                            className="text-xs text-red-500 flex items-center gap-1 mx-auto"><Trash2 className="w-3 h-3" />Limpiar</button>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload className="w-10 h-10 text-purple-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500 font-medium">Seleccioná múltiples CVs a la vez</p>
+                          <p className="text-xs text-slate-400 mt-1">PDF, DOC, DOCX, TXT — sin límite</p>
+                        </div>
+                      )
                     ) : (
-                      <div>
-                        <Upload className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                        <p className="text-sm text-slate-500 font-medium">Arrastrá o hacé clic</p>
-                        <p className="text-xs text-slate-400 mt-1">PDF, DOC, DOCX, TXT</p>
-                      </div>
+                      pdfFile ? (
+                        <div className="space-y-2">
+                          <FileText className="w-10 h-10 text-blue-500 mx-auto" />
+                          <p className="text-sm font-medium text-slate-700">{pdfFile.name}</p>
+                          <button type="button" onClick={ev => { ev.stopPropagation(); setPdfFile(null); }}
+                            className="text-xs text-red-500 flex items-center gap-1 mx-auto"><Trash2 className="w-3 h-3" />Quitar</button>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500 font-medium">Arrastrá o hacé clic</p>
+                          <p className="text-xs text-slate-400 mt-1">PDF, DOC, DOCX, TXT</p>
+                        </div>
+                      )
                     )}
                   </div>
+                  {/* Batch progress */}
+                  {batchProgress && (
+                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+                      <div className="flex justify-between text-xs text-purple-700 mb-1">
+                        <span>Procesando {batchProgress.current}</span>
+                        <span>{batchProgress.done}/{batchProgress.total}</span>
+                      </div>
+                      <div className="w-full bg-purple-100 rounded-full h-1.5">
+                        <div className="bg-purple-600 h-1.5 rounded-full transition-all"
+                          style={{width: `${(batchProgress.done/batchProgress.total)*100}%`}} />
+                      </div>
+                    </div>
+                  )}
                 ) : (
                   <textarea value={cvTexto} onChange={e => setCvTexto(e.target.value)} rows={6}
                     placeholder="Pegá el contenido del CV aquí..."
@@ -1130,10 +1222,18 @@ export default function RecruitmentView() {
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => { setShowAnalyzeModal(false); setError(''); }} className="flex-1 border border-slate-200 text-slate-600 py-2 rounded-lg text-sm">Cancelar</button>
-                <button type="submit" disabled={isAnalyzing || (!pdfFile && !cvTexto)}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                  {isAnalyzing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analizando...</> : <><Sparkles className="w-4 h-4" />Analizar con IA</>}
-                </button>
+                {batchMode && inputType === 'pdf' ? (
+                  <button type="button" onClick={analizarBatch}
+                    disabled={isAnalyzing || pdfFiles.length === 0 || !analyzeVacanteId}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isAnalyzing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Procesando...</> : <><Sparkles className="w-4 h-4" />Analizar {pdfFiles.length} CV{pdfFiles.length>1?'s':''}</>}
+                  </button>
+                ) : (
+                  <button type="submit" disabled={isAnalyzing || (!pdfFile && !cvTexto)}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isAnalyzing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analizando...</> : <><Sparkles className="w-4 h-4" />Analizar con IA</>}
+                  </button>
+                )}
               </div>
             </form>
           </div>
