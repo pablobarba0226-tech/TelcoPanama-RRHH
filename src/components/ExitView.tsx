@@ -53,7 +53,8 @@ export default function ExitView() {
 
   async function cargarSalidas() {
     const r = await fetch('/api/salidas');
-    setSalidas(await r.json());
+    const sd = await r.json();
+    setSalidas(Array.isArray(sd) ? sd : []);
   }
 
   async function guardar() {
