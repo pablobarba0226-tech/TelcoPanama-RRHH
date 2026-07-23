@@ -54,7 +54,9 @@ export default function ControlView() {
     const tipo = tab === 'ausencias' ? 'Ausencia justificada' : tab === 'vacaciones' ? 'Vacaciones' : '';
     const p = new URLSearchParams();
     if (tipo) p.set('tipo', tipo); // not filtering by tipo since we show both
-    const r = await fetch(`/api/permisos`);
+    if (filterFecha) p.set('fecha', filterFecha);
+    if (filterDept)  p.set('dept', filterDept);
+    const r = await fetch(`/api/permisos?${p}`);
     setPermisos(await r.json());
   }
 
@@ -290,8 +292,8 @@ export default function ControlView() {
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">{p.empleado_nombre}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{p.departamento || '—'}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{p.tipo}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{p.fecha_inicio}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{p.fecha_fin}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{(p.fecha_inicio||'').slice(0,10)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{(p.fecha_fin||'').slice(0,10)}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{p.dias_solicitados}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -446,12 +448,12 @@ export default function ControlView() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Desde *</label>
-                  <input required type="date" value={vacForm.fecha_inicio} onChange={e=>setVacForm({...vacForm,fecha_inicio:e.target.value})}
+                  <input required type="date" value={(vacForm.fecha_inicio||'').slice(0,10)} onChange={e=>setVacForm({...vacForm,fecha_inicio:e.target.value})}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Hasta *</label>
-                  <input required type="date" value={vacForm.fecha_fin} onChange={e=>setVacForm({...vacForm,fecha_fin:e.target.value})}
+                  <input required type="date" value={(vacForm.fecha_fin||'').slice(0,10)} onChange={e=>setVacForm({...vacForm,fecha_fin:e.target.value})}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                 </div>
               </div>
