@@ -172,7 +172,7 @@ app.get("/api/empleados", async (req, res) => {
              e.hora_entrada, e.hora_salida, e.id_departamento, e.id_cargo, e.id_supervisor,
              d.nombre AS departamento_nombre, c.titulo AS cargo_titulo,
              s.nombre || ' ' || s.apellido AS supervisor_nombre,
-             sv.dias_pendientes
+             COALESCE(sv.dias_acumulados - sv.dias_tomados, 0) AS dias_pendientes
       FROM empleados e
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN cargos c ON c.id = e.id_cargo
@@ -197,7 +197,8 @@ app.get("/api/empleados/:id", async (req, res) => {
              e.tipo_contrato, e.jornada, e.salario_base, e.estado, e.modalidad,
              e.hora_entrada, e.hora_salida, e.id_departamento, e.id_cargo, e.id_supervisor,
              d.nombre AS departamento_nombre, c.titulo AS cargo_titulo,
-             sv.dias_acumulados, sv.dias_tomados, sv.dias_pendientes
+             sv.dias_acumulados, sv.dias_tomados,
+      COALESCE(sv.dias_acumulados - sv.dias_tomados, 0) AS dias_pendientes
       FROM empleados e
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN cargos c ON c.id = e.id_cargo
@@ -1448,28 +1449,27 @@ app.get("/api/reportes/rotacion", async (req, res) => {
     const deptFilter = dept ? "AND e.id_departamento = $1" : "";
 
     // Monthly ingress — from fecha_ingreso
-    const mensual = await query(`
-      SELECT to_char(DATE_TRUNC('month', fecha_ingreso), 'YYYY-MM') AS mes,
-             'Ingreso' AS tipo, COUNT(*) AS cantidad
-      FROM empleados e WHERE 1=1 ${deptFilter}
-      GROUP BY 1
-      UNION ALL
-      -- Salidas from salidas_empleados table
-      SELECT to_char(DATE_TRUNC('month', se.fecha_efectiva::DATE::TEXT AS fecha_efectiva), 'YYYY-MM'), 'Salida', COUNT(*)
-      FROM salidas_empleados se
-      JOIN empleados e ON e.id = se.id_empleado
-      WHERE 1=1 ${deptFilter}
-      GROUP BY 1
-      UNION ALL
-      -- Salidas from empleados.fecha_salida (employees marked Inactivo without salidas record)
-      SELECT to_char(DATE_TRUNC('month', e.fecha_salida), 'YYYY-MM'), 'Salida', COUNT(*)
-      FROM empleados e
-      WHERE e.estado = 'Inactivo'
-        AND e.fecha_salida IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM salidas_empleados se2 WHERE se2.id_empleado = e.id)
-        ${deptFilter}
-      GROUP BY 1
-      ORDER BY 1 DESC LIMIT 24`, deptParam);
+    const mensual = await query(
+      dept
+        ? `SELECT to_char(DATE_TRUNC('month', fecha_ingreso), 'YYYY-MM') AS mes,
+                 'Ingreso' AS tipo, COUNT(*) AS cantidad
+           FROM empleados e WHERE e.id_departamento=$1
+           GROUP BY 1
+           UNION ALL
+           SELECT to_char(DATE_TRUNC('month', se.fecha_efectiva), 'YYYY-MM'), 'Salida', COUNT(*)
+           FROM salidas_empleados se
+           JOIN empleados e ON e.id = se.id_empleado
+           WHERE e.id_departamento=$1 GROUP BY 1
+           ORDER BY 1 DESC LIMIT 24`
+        : `SELECT to_char(DATE_TRUNC('month', fecha_ingreso), 'YYYY-MM') AS mes,
+                 'Ingreso' AS tipo, COUNT(*) AS cantidad
+           FROM empleados e GROUP BY 1
+           UNION ALL
+           SELECT to_char(DATE_TRUNC('month', se.fecha_efectiva), 'YYYY-MM'), 'Salida', COUNT(*)
+           FROM salidas_empleados se
+           JOIN empleados e ON e.id = se.id_empleado GROUP BY 1
+           ORDER BY 1 DESC LIMIT 24`,
+      deptParam);
 
     const motivos = await query(`
       SELECT se.tipo, COUNT(*) AS cantidad
@@ -1520,14 +1520,14 @@ app.get("/api/reportes/vacaciones", async (req, res) => {
         e.salario_base,
         COALESCE(sv.dias_acumulados, 0) AS dias_acumulados,
         COALESCE(sv.dias_tomados, 0)    AS dias_tomados,
-        COALESCE(sv.dias_pendientes, 0) AS dias_pendientes,
-        ROUND(e.salario_base / 30.0 * COALESCE(sv.dias_pendientes, 0), 2) AS costo_pendiente
+        COALESCE(sv.dias_acumulados - sv.dias_tomados, 0) AS dias_pendientes,
+        ROUND(e.salario_base / 30.0 * COALESCE(sv.dias_acumulados - sv.dias_tomados, 0), 2) AS costo_pendiente
       FROM empleados e
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN cargos c ON c.id = e.id_cargo
       LEFT JOIN saldos_vacaciones sv ON sv.id_empleado = e.id
       WHERE e.estado = 'Activo' ${deptFilter}
-      ORDER BY sv.dias_pendientes DESC NULLS LAST`);
+      ORDER BY (sv.dias_acumulados - sv.dias_tomados) DESC NULLS LAST`);
 
     // 2. Vacaciones tomadas en el año actual
     const tomadas = await query(`
@@ -1545,7 +1545,7 @@ app.get("/api/reportes/vacaciones", async (req, res) => {
       JOIN empleados e ON e.id = sp.id_empleado
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       WHERE sp.tipo = 'Vacaciones'
-        AND EXTRACT(YEAR FROM sp.fecha_inicio::DATE::TEXT AS fecha_inicio) = EXTRACT(YEAR FROM CURRENT_DATE)
+        AND EXTRACT(YEAR FROM sp.fecha_inicio::DATE) = EXTRACT(YEAR FROM CURRENT_DATE)
         AND sp.estado = 'Aprobado'
         ${deptFilter}
       ORDER BY sp.fecha_inicio DESC`);
