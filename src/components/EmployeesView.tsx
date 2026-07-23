@@ -411,7 +411,9 @@ function TabEvaluaciones({ empId }: { empId: number }) {
         {promedio && (
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
             <TrendingUp className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-semibold text-blue-700">Promedio histórico: {promedio}/5</span>
+            <span className="text-sm font-semibold text-blue-700">
+                Promedio histórico: {promedio}/5 · <span className={Number(promedio)*20>=90?'text-emerald-600':Number(promedio)*20>=70?'text-blue-600':Number(promedio)*20>=60?'text-amber-600':'text-red-600'}>{(Number(promedio)*20).toFixed(0)}%</span>
+              </span>
           </div>
         )}
       </div>
@@ -438,6 +440,10 @@ function TabEvaluaciones({ empId }: { empId: number }) {
                     {Number(latest.promedio).toFixed(1)}
                   </div>
                   <div className="text-slate-400 text-xs">/5.0</div>
+                  <div className={`text-sm font-bold mt-1 ${Number(latest.promedio)*20 >= 90 ? 'text-emerald-400' : Number(latest.promedio)*20 >= 70 ? 'text-blue-400' : Number(latest.promedio)*20 >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {(Number(latest.promedio)*20).toFixed(0)}%
+                  </div>
+                  <div className="text-slate-500 text-xs">/100</div>
                 </div>
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
@@ -737,12 +743,13 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
       activos: t.totalEmpleados,  // stats already filters activos
       vacaciones: null,
     });
-    // Get exact counts per estado
-    const [act, vac] = await Promise.all([
-      fetch('/api/empleados?estado=Activo&limit=1').then(r=>r.json()).catch(()=>({})),
-      fetch('/api/empleados?estado=Vacaciones&limit=1').then(r=>r.json()).catch(()=>({})),
-    ]);
-    setTotales({ total: t.totalEmpleados, activos: act.total ?? 0, vacaciones: vac.total ?? 0 });
+    // Stats now has the full breakdown
+    setTotales({
+      total:      t.totalEmpleados,       // Activo + Vacaciones
+      activos:    t.empleadosActivos ?? 0,
+      vacaciones: t.empleadosVacaciones ?? 0,
+      inactivos:  t.empleadosInactivos ?? 0,
+    });
     cargarEmpleados();
   }
 
@@ -938,7 +945,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
 
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total empleados', value: totales.total ?? total, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Personal vigente', value: totales.total ?? total, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Activos', value: totales.activos ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'En vacaciones', value: totales.vacaciones ?? '—', color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'Departamentos', value: departamentos.length, color: 'text-purple-600', bg: 'bg-purple-50' },
