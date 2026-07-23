@@ -471,7 +471,7 @@ app.get("/api/empleados/:id/evaluaciones", async (req, res) => {
       FROM evaluaciones_desempeno ev
       LEFT JOIN empleados e2 ON e2.id = ev.id_evaluador
       WHERE ev.id_empleado=$1
-      ORDER BY ev.creado_en::DATE::TEXT AS creado_en DESC`, [req.params.id]);
+      ORDER BY ev.creado_en DESC`, [req.params.id]);
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -564,7 +564,7 @@ app.get("/api/permisos", async (req, res) => {
     const params: any[] = [];
     if (estado) { params.push(estado); where.push(`sp.tipo = $${params.length}`); }
     if (dept)   { params.push(dept);   where.push(`e.id_departamento = $${params.length}`); }
-    if (fecha)  { params.push(fecha);  where.push(`sp.fecha_inicio::DATE::TEXT AS fecha_inicio <= $${params.length}::date AND sp.fecha_fin::DATE::TEXT AS fecha_fin >= $${params.length}::date`); }
+    if (fecha)  { params.push(fecha);  where.push(`sp.fecha_inicio::DATE <= $${params.length}::date AND sp.fecha_fin::DATE >= $${params.length}::date`); }
     const r = await query(`
       SELECT sp.id, sp.tipo, sp.estado,
              sp.fecha_inicio::DATE::TEXT AS fecha_inicio,
@@ -580,7 +580,7 @@ app.get("/api/permisos", async (req, res) => {
       LEFT JOIN departamentos d ON d.id = e.id_departamento
       LEFT JOIN empleados a ON a.id = sp.aprobado_por
       WHERE ${where.join(" AND ")}
-      ORDER BY sp.fecha_inicio::DATE::TEXT AS fecha_inicio DESC`, params);
+      ORDER BY sp.fecha_inicio DESC`, params);
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -728,7 +728,7 @@ app.post("/api/capacitaciones/:id/participantes/departamento", async (req, res) 
       sql += ` AND NOT EXISTS (
         SELECT 1 FROM solicitudes_permiso sp
         WHERE sp.id_empleado=e.id AND sp.estado='Aprobado' AND sp.tipo='Vacaciones'
-        AND sp.fecha_inicio::DATE::TEXT AS fecha_inicio <= $2::date AND sp.fecha_fin::DATE::TEXT AS fecha_fin >= $3::date
+        AND sp.fecha_inicio::DATE <= $2::date AND sp.fecha_fin::DATE >= $3::date
       )`;
       params.push(capData.fecha_inicio, capData.fecha_fin);
     }
@@ -804,7 +804,7 @@ app.get("/api/evaluaciones", async (req, res) => {
       LEFT JOIN cargos c ON c.id = e.id_cargo
       LEFT JOIN empleados ev2 ON ev2.id = ev.id_evaluador
       WHERE ${where.join(" AND ")}
-      ORDER BY ev.creado_en::DATE::TEXT AS creado_en DESC`, params);
+      ORDER BY ev.creado_en DESC`, params);
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -901,7 +901,7 @@ app.get("/api/vacantes", async (_req, res) => {
       LEFT JOIN candidatos c ON c.id_vacante = v.id
       WHERE v.estado != 'Cancelada'
       GROUP BY v.id, d.id, d.nombre
-      ORDER BY v.fecha_apertura::DATE::TEXT AS fecha_apertura DESC
+      ORDER BY v.fecha_apertura DESC
     `);
     res.json(r.rows);
   } catch (e: any) { 
@@ -1211,7 +1211,7 @@ app.get("/api/salidas", async (req, res) => {
       FROM salidas_empleados se
       JOIN empleados e ON e.id = se.id_empleado
       LEFT JOIN departamentos d ON d.id = e.id_departamento
-      ORDER BY se.fecha_efectiva::DATE::TEXT AS fecha_efectiva DESC`);
+      ORDER BY se.fecha_efectiva DESC`);
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1481,7 +1481,7 @@ app.get("/api/reportes/rotacion", async (req, res) => {
     const por_dept = await query(`
       SELECT d.nombre AS departamento,
              COUNT(DISTINCT e2.id) FILTER(WHERE e2.fecha_ingreso >= CURRENT_DATE - INTERVAL '6 months') AS ingresos_6m,
-             COUNT(DISTINCT se.id) FILTER(WHERE se.fecha_efectiva::DATE::TEXT AS fecha_efectiva >= CURRENT_DATE - INTERVAL '6 months') AS salidas_6m
+             COUNT(DISTINCT se.id) FILTER(WHERE se.fecha_efectiva::DATE >= CURRENT_DATE - INTERVAL '6 months') AS salidas_6m
       FROM departamentos d
       LEFT JOIN empleados e2 ON e2.id_departamento = d.id
       LEFT JOIN salidas_empleados se ON se.id_empleado = e2.id
@@ -1548,7 +1548,7 @@ app.get("/api/reportes/vacaciones", async (req, res) => {
         AND EXTRACT(YEAR FROM sp.fecha_inicio::DATE::TEXT AS fecha_inicio) = EXTRACT(YEAR FROM CURRENT_DATE)
         AND sp.estado = 'Aprobado'
         ${deptFilter}
-      ORDER BY sp.fecha_inicio::DATE::TEXT AS fecha_inicio DESC`);
+      ORDER BY sp.fecha_inicio DESC`);
 
     // 3. Alert: empleados con más de 15 días pendientes
     const alerta15 = saldos.rows.filter((r: any) => Number(r.dias_pendientes) > 15);
