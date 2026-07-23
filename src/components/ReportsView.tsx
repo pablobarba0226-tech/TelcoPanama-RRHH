@@ -849,8 +849,8 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{v.empleado}</td>
                       <td className="px-4 py-2.5 text-sm text-slate-500">{v.departamento}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-600">{v.fecha_inicio}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-600">{v.fecha_fin}</td>
+                      <td className="px-4 py-2.5 text-sm text-slate-600">{(v.fecha_inicio||'').slice(0,10)}</td>
+                      <td className="px-4 py-2.5 text-sm text-slate-600">{(v.fecha_fin||'').slice(0,10)}</td>
                       <td className="px-4 py-2.5 text-sm font-bold text-blue-600">{v.dias_solicitados}</td>
                       <td className="px-4 py-2.5 text-sm text-slate-500 max-w-xs truncate">{v.motivo||'—'}</td>
                     </tr>
