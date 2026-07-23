@@ -57,7 +57,8 @@ export default function ControlView() {
     if (filterFecha) p.set('fecha', filterFecha);
     if (filterDept)  p.set('dept', filterDept);
     const r = await fetch(`/api/permisos?${p}`);
-    setPermisos(await r.json());
+    const pd = await r.json();
+    setPermisos(Array.isArray(pd) ? pd : []);
   }
 
   async function guardarMarcaje(e: React.FormEvent) {
