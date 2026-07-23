@@ -1730,15 +1730,24 @@ app.get("/api/reportes/resumen-general", async (req, res) => {
 // Stats dashboard
 app.get("/api/stats", async (_req, res) => {
   try {
-    const emps  = await query("SELECT COUNT(*) FROM empleados WHERE estado='Activo'");
+    const emps  = await query(`SELECT
+      COUNT(*) FILTER(WHERE estado='Activo')::int       AS activos,
+      COUNT(*) FILTER(WHERE estado='Vacaciones')::int   AS en_vacaciones,
+      COUNT(*) FILTER(WHERE estado='Inactivo')::int     AS inactivos,
+      COUNT(*) FILTER(WHERE estado IN ('Activo','Vacaciones'))::int AS total_activos
+      FROM empleados`);
     const vacan = await query("SELECT COUNT(*) FROM vacantes WHERE estado='Abierta'");
     const caps  = await query("SELECT COUNT(*) FROM capacitaciones");
     const alertas = await query("SELECT COUNT(*) FROM alertas_generadas WHERE estado='Nueva'");
+    const e = emps.rows[0];
     res.json({
-      totalEmpleados:           Number(emps.rows[0].count),
-      vacantesAbiertas:         Number(vacan.rows[0].count),
+      totalEmpleados:            e.total_activos,   // Activo + Vacaciones (personal vigente)
+      empleadosActivos:          e.activos,
+      empleadosVacaciones:       e.en_vacaciones,
+      empleadosInactivos:        e.inactivos,
+      vacantesAbiertas:          Number(vacan.rows[0].count),
       capacitacionesCompletadas: Number(caps.rows[0].count),
-      alertasNuevas:            Number(alertas.rows[0].count),
+      alertasNuevas:             Number(alertas.rows[0].count),
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
