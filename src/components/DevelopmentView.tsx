@@ -287,7 +287,7 @@ export default function DevelopmentView() {
                   {cap.descripcion && <p className="text-xs text-slate-400 mt-1 line-clamp-1">{cap.descripcion}</p>}
                 </div>
                 <div className="text-right text-sm shrink-0">
-                  <p className="text-slate-500">{cap.fecha_inicio} → {cap.fecha_fin || '—'}</p>
+                  <p className="text-slate-500">{(cap.fecha_inicio||'').slice(0,10)} → {cap.fecha_fin || '—'}</p>
                   <p className="text-slate-400 text-xs">{cap.proveedor || '—'}</p>
                   {cap.costo > 0 && <p className="text-slate-500 text-xs mt-0.5">${cap.costo}</p>}
                 </div>
