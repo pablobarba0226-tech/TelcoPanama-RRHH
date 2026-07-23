@@ -908,7 +908,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                       : <Circle className="w-5 h-5 text-slate-300 shrink-0" />}
                     <div className="flex-1">
                       <p className={`text-sm font-medium ${item.completado ? 'text-emerald-800' : 'text-slate-700'}`}>{item.nombre}</p>
-                      {item.completado && item.fecha_completado && <p className="text-xs text-emerald-600">Completado: {item.fecha_completado}</p>}
+                      {item.completado && item.fecha_completado && <p className="text-xs text-emerald-600">Completado: {(item.fecha_completado||'').slice(0,10)}</p>}
                     </div>
                     {!item.completado && <span className="text-xs text-slate-400">Clic para marcar</span>}
                   </div>
@@ -1087,7 +1087,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                       ))}
                       <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de nacimiento</label>
-                        <input type="date" value={form.fecha_nacimiento} onChange={e => setForm({ ...form, fecha_nacimiento: e.target.value })}
+                        <input type="date" value={(form.fecha_nacimiento||'').slice(0,10)} onChange={e => setForm({ ...form, fecha_nacimiento: e.target.value })}
                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                       </div>
                       <div>
@@ -1145,7 +1145,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de ingreso *</label>
-                        <input required type="date" value={form.fecha_ingreso} onChange={e => setForm({ ...form, fecha_ingreso: e.target.value })}
+                        <input required type="date" value={(form.fecha_ingreso||'').slice(0,10)} onChange={e => setForm({ ...form, fecha_ingreso: e.target.value })}
                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                       </div>
                       <div>
