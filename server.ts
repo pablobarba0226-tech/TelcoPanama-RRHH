@@ -211,30 +211,65 @@ app.get("/api/empleados/:id", async (req, res) => {
 app.post("/api/empleados", async (req, res) => {
   try {
     const b = req.body;
+
+    // Sanitize: empty strings → null, numeric strings → numbers
+    const str  = (v: any) => (v === '' || v == null) ? null : String(v);
+    const num  = (v: any) => (v === '' || v == null) ? null : Number(v);
+    const date = (v: any) => (v === '' || v == null) ? null : String(v);
+
     // Auto-generate employee code
     const count = await query("SELECT COUNT(*) FROM empleados");
     const code = `EMP-${String(Number(count.rows[0].count) + 1).padStart(4, "0")}`;
 
     const r = await query(`
-      INSERT INTO empleados (codigo_empleado,nombre,apellido,cedula,correo_corporativo,
-        correo_personal,telefono,fecha_nacimiento,genero,id_departamento,id_cargo,
-        id_supervisor,fecha_ingreso,tipo_contrato,jornada,salario_base,estado,modalidad,hora_entrada,hora_salida)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-      RETURNING *`,
-      [code, b.nombre, b.apellido, b.cedula, b.correo_corporativo, b.correo_personal,
-       b.telefono, b.fecha_nacimiento, b.genero, b.id_departamento, b.id_cargo,
-       b.id_supervisor, b.fecha_ingreso, b.tipo_contrato, b.jornada,
-       b.salario_base, b.estado || "Activo", b.modalidad,
-       b.hora_entrada || "08:00", b.hora_salida || "17:00"]);
+      INSERT INTO empleados (
+        codigo_empleado, nombre, apellido, cedula,
+        correo_corporativo, correo_personal, telefono,
+        fecha_nacimiento, genero,
+        id_departamento, id_cargo, id_supervisor,
+        fecha_ingreso, tipo_contrato, jornada,
+        salario_base, estado, modalidad,
+        hora_entrada, hora_salida, nacionalidad
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,
+        $10,$11,$12,$13,$14,$15,
+        $16,$17,$18,$19,$20,$21
+      ) RETURNING *`,
+      [
+        code,
+        str(b.nombre),
+        str(b.apellido),
+        str(b.cedula),
+        str(b.correo_corporativo),
+        str(b.correo_personal),
+        str(b.telefono),
+        date(b.fecha_nacimiento),
+        str(b.genero),
+        num(b.id_departamento),
+        num(b.id_cargo),
+        num(b.id_supervisor),
+        date(b.fecha_ingreso) || new Date().toISOString().slice(0, 10),
+        str(b.tipo_contrato) || 'Indefinido',
+        str(b.jornada) || 'Completa',
+        num(b.salario_base) ?? 0,
+        str(b.estado) || 'Activo',
+        str(b.modalidad) || 'Presencial',
+        str(b.hora_entrada) || '08:00',
+        str(b.hora_salida)  || '17:00',
+        str(b.nacionalidad) || 'Panameña',
+      ]);
 
     // Crear saldo vacaciones
-    await query(`INSERT INTO saldos_vacaciones(id_empleado, dias_acumulados, dias_tomados)
-      VALUES ($1, 0, 0) ON CONFLICT DO NOTHING`, [r.rows[0].id]);
+    await query(
+      `INSERT INTO saldos_vacaciones(id_empleado, dias_acumulados, dias_tomados)
+       VALUES ($1, 0, 0) ON CONFLICT DO NOTHING`,
+      [r.rows[0].id]);
 
     // Crear checklist de inducción
     const items = await query("SELECT id FROM items_induccion WHERE id_plantilla = 1");
     for (const item of items.rows) {
-      await query(`INSERT INTO induccion_empleado (id_empleado, id_item) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+      await query(
+        `INSERT INTO induccion_empleado (id_empleado, id_item) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
         [r.rows[0].id, item.id]);
     }
     res.json(r.rows[0]);
