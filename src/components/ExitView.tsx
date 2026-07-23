@@ -190,7 +190,7 @@ export default function ExitView() {
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TIPO_COLOR[s.tipo] || 'bg-slate-100 text-slate-600'}`}>{s.tipo}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{s.fecha_efectiva}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{(s.fecha_efectiva||'').slice(0,10)}</td>
                     <td className="px-4 py-3">
                       {issues.length === 0 ? (
                         <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
@@ -405,7 +405,7 @@ export default function ExitView() {
                   )}
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Fecha efectiva *</label>
-                    <input required type="date" value={form.fecha_efectiva} onChange={e => setForm({ ...form, fecha_efectiva: e.target.value })}
+                    <input required type="date" value={(form.fecha_efectiva||'').slice(0,10)} onChange={e => setForm({ ...form, fecha_efectiva: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                   </div>
                   <div>
