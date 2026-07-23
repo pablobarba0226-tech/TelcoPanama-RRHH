@@ -37,7 +37,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
 
   // KPI cards — top row
   const kpis = [
-    { label: 'Empleados activos',   value: stats?.totalEmpleados || 0,            sub: 'Ver detalle', icon: Users,         col: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   tab: 'personnel' },
+    { label: 'Personal activo',      value: (stats?.empleadosActivos || 0) + (stats?.empleadosVacaciones || 0),            sub: 'Ver detalle', icon: Users,         col: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   tab: 'personnel' },
     { label: 'Vacantes pendientes', value: stats?.vacantesAbiertas || 0,          sub: 'Ver detalle', icon: Briefcase,     col: 'text-emerald-600',bg: 'bg-emerald-50',border: 'border-emerald-200',tab: 'recruitment' },
     { label: 'Ausencias hoy',       value: ausenciasHoy,                           sub: 'Ver detalle', icon: AlertTriangle, col: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-200',  tab: 'reports' },
     { label: 'Capacitaciones',      value: stats?.capacitacionesCompletadas || 0, sub: 'Ver detalle', icon: GraduationCap, col: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', tab: 'development' },
