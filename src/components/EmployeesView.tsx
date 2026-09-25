@@ -704,7 +704,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
     contacto_emergencia: '', fecha_nacimiento: '', genero: '', estado_civil: '', nacionalidad: 'Panamena',
     id_departamento: '', id_cargo: '', id_supervisor: '', fecha_ingreso: '',
     salario_base: '', tipo_contrato: 'Indefinido', jornada: 'Completa',
-    estado: 'Activo', modalidad: 'Presencial',
+    estado: 'Activo', modalidad: 'Presencial', tiene_discapacidad: false as boolean,
   };
   const [form, setForm] = useState(emptyForm);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -1186,6 +1186,21 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                             <input type="radio" checked={form.estado === st} onChange={() => setForm({ ...form, estado: st })} className="accent-blue-600" />{st}
                           </label>
                         ))}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          id="tiene_discapacidad"
+                          checked={!!form.tiene_discapacidad}
+                          onChange={e => setForm({ ...form, tiene_discapacidad: e.target.checked })}
+                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                        />
+                        <label htmlFor="tiene_discapacidad" className="text-sm text-slate-700 cursor-pointer select-none">
+                          <span className="font-medium">Persona con discapacidad</span>
+                          <span className="text-xs text-slate-500 ml-2">(Ley 15/2016 — computa para cuota mínima 2%)</span>
+                        </label>
                       </div>
                     </div>
                   </div>
