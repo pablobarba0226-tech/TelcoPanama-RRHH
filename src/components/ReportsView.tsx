@@ -389,6 +389,30 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
               </div>
             </div>
           </div>
+          {/* Reclutamiento KPI */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <span>🎯</span> Reclutamiento
+            </h3>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: 'Vacantes abiertas',  value: data.reclutamiento?.vacantes_abiertas ?? 0,   color: 'text-blue-700',    bg: 'bg-blue-50' },
+                { label: 'Vacantes cerradas',  value: data.reclutamiento?.vacantes_cerradas ?? 0,   color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                { label: 'Días prom. general', value: `${data.reclutamiento?.dias_promedio ?? 0}d`,  color: 'text-slate-700',   bg: 'bg-slate-50' },
+                { label: 'Días prom. cerradas',value: `${data.reclutamiento?.dias_promedio_cerradas ?? 0}d`, color: 'text-purple-700', bg: 'bg-purple-50' },
+              ].map(k => (
+                <div key={k.label} className={`${k.bg} rounded-lg p-3`}>
+                  <p className="text-xs text-slate-500">{k.label}</p>
+                  <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                </div>
+              ))}
+            </div>
+            {data.reclutamiento?.dias_promedio_cerradas > 30 && (
+              <p className="text-xs text-amber-700 mt-3 bg-amber-50 rounded-lg px-3 py-2">
+                ⚠️ El tiempo promedio de cobertura supera los 30 días. Considera revisar el proceso de selección.
+              </p>
+            )}
+          </div>
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
             Resumen ejecutivo de todos los modulos. Usá las pestañas para ver reportes especificos con filtros por departamento, fecha y estado.
           </div>
