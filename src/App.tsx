@@ -15,13 +15,13 @@ export default function App() {
 
   function handleNavigate(module: string, empId?: number, tab?: string) {
     const normalized =
-      module === 'personal'      ? 'personnel'   :
+      module === 'personal'   ? 'personnel'   :
       module === 'reclutamiento' ? 'recruitment' :
-      module === 'desarrollo'    ? 'development' :
-      module === 'salida'        ? 'exit'        :
-      module === 'control'       ? 'control'     :
-      module === 'reportes'      ? 'reports'     :
-      module;
+      module === 'desarrollo' ? 'development' :
+      module === 'salida'     ? 'exit'        :
+      module === 'control'    ? 'control'     :
+      module === 'reportes'   ? 'reports'     :
+      module; // pass through if already correct key
 
     setDeepLink(empId ? { empId, tab } : null);
     setActiveTab(normalized);
@@ -42,50 +42,14 @@ export default function App() {
   };
 
   return (
-    /*
-     * Layout strategy
-     * ───────────────
-     * On wide screens (≥768 px) Sidebar renders a permanent left column
-     * inside a horizontal flex row, so we need flex here.
-     * On narrow screens Sidebar renders ONLY a fixed topbar + a portal
-     * drawer — it contributes zero width to this row — so main fills 100%.
-     *
-     * The Sidebar component itself decides which mode to use via a
-     * matchMedia listener, so no Tailwind breakpoint classes are needed
-     * here; the layout always starts as "flex row" but on narrow screens
-     * the sidebar simply isn't in the flow.
-     */
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => { setDeepLink(null); setActiveTab(tab); }}
       />
-      {/*
-       * main always gets flex-1 (fills remaining width).
-       * On wide screens that's "screen minus 208 px sidebar".
-       * On narrow screens the sidebar is out of flow, so flex-1 = 100%.
-       *
-       * pt-[48px] reserves space for the fixed mobile topbar (h≈48px).
-       * On wide screens the topbar is not rendered, so the padding is
-       * harmless (you could conditionally apply it, but it doesn't hurt).
-       * We use an inline style for the padding-top so it is immune to
-       * Tailwind's JIT purging arbitrary values.
-       *)
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{ paddingTop: 'var(--topbar-h, 48px)' }}
-      >
-        {/*
-         * CSS custom property trick: on wide screens Sidebar doesn't render
-         * the topbar, so we override --topbar-h to 0 via a sibling selector
-         * isn't possible in plain CSS. Instead we rely on the fact that
-         * Sidebar's wide branch returns a position:static element, giving
-         * the flex container a real left sibling, which means the main's
-         * flex-1 already excludes the sidebar width. We just need the
-         * padding-top gone on desktop. The Sidebar injects a <style> tag
-         * for this.
-         *)
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      {/* pt-12 on mobile to clear the fixed top bar; sm: reverts to normal */}
+      <main className="flex-1 pt-12 sm:pt-0 p-4 sm:p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
       </main>
