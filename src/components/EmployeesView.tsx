@@ -87,7 +87,7 @@ function TabAsistencia({ empId }: { empId: number }) {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Asistencia', value: `${pctPresente}%`, sub: `${resumen.presentes} días`, col: pctPresente >= 90 ? 'text-emerald-600 bg-emerald-50' : pctPresente >= 75 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50' },
           { label: 'Tardanzas', value: resumen.tardanzas, sub: `${resumen.tardanzas_injustificadas} injustificadas`, col: 'text-amber-600 bg-amber-50' },
@@ -132,6 +132,7 @@ function TabAsistencia({ empId }: { empId: number }) {
 
       {/* Records table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -164,6 +165,7 @@ function TabAsistencia({ empId }: { empId: number }) {
             ))}
           </tbody>
         </table>
+        </div>
         {registros.length > 30 && (
           <div className="px-4 py-2 border-t border-slate-100 text-xs text-slate-400 text-center">
             Mostrando 30 de {registros.length} registros
@@ -203,7 +205,7 @@ function TabVacaciones({ empId }: { empId: number }) {
       <h3 className="font-semibold text-slate-800">Balance de vacaciones y permisos</h3>
 
       {/* Balance cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
           <p className="text-sm text-blue-600 font-medium">Días disponibles</p>
           <p className="text-4xl font-bold text-blue-700 mt-1">{pendientes}</p>
@@ -231,7 +233,7 @@ function TabVacaciones({ empId }: { empId: number }) {
       </div>
 
       {/* Additional metrics */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Años de servicio', value: aniosServicio !== null ? `${aniosServicio} año${aniosServicio !== 1 ? 's' : ''}` : '—', icon: '🏆' },
           { label: 'Salario diario', value: salarioDiario ? `$${salarioDiario}` : '—', icon: '💰' },
@@ -255,6 +257,7 @@ function TabVacaciones({ empId }: { empId: number }) {
         {solicitudes.length === 0 ? (
           <div className="py-10 text-center text-slate-400 text-sm">Sin solicitudes registradas</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="border-b border-slate-100">
               {['Tipo', 'Desde', 'Hasta', 'Días', 'Motivo', 'Estado'].map(h => (
@@ -280,6 +283,7 @@ function TabVacaciones({ empId }: { empId: number }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -309,7 +313,7 @@ function TabCapacitaciones({ empId }: { empId: number }) {
   return (
     <div className="space-y-5">
       <h3 className="font-semibold text-slate-800">Historial de capacitaciones</h3>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Total inscritas', value: resumen.total, col: 'text-blue-600 bg-blue-50' },
           { label: 'Completadas', value: resumen.completadas, col: 'text-emerald-600 bg-emerald-50' },
@@ -455,7 +459,7 @@ function TabEvaluaciones({ empId }: { empId: number }) {
               </div>
               {(latest.proyectos_asignados > 0) && (
                 <div className="px-5 pb-5">
-                  <div className="bg-slate-50 rounded-lg p-3 grid grid-cols-3 gap-3">
+                  <div className="bg-slate-50 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="text-center">
                       <p className="text-xs text-slate-500">Proyectos asignados</p>
                       <p className="text-xl font-bold text-slate-800">{latest.proyectos_asignados}</p>
@@ -496,6 +500,7 @@ function TabEvaluaciones({ empId }: { empId: number }) {
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
                 <h4 className="text-sm font-semibold text-slate-700">Historial de evaluaciones</h4>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-slate-100">
                   {['Período', 'Tipo', 'Promedio', 'Liderazgo', 'Equipo', 'Tecnico', 'Evaluador', 'Fecha'].map(h => (
@@ -526,6 +531,7 @@ function TabEvaluaciones({ empId }: { empId: number }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -592,7 +598,7 @@ function TabHistorial({ empId, empleado }: { empId: number; empleado: Empleado }
             </div>
           )}
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Evaluaciones', value: stats.evaluaciones, icon: '⭐' },
             { label: 'Capacitaciones', value: stats.capacitaciones, icon: '📚' },
@@ -866,7 +872,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
 
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           {activeTab === 'datos' && (
-            <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-5">
               {[
                 ['Cédula', String(selected.cedula || '—')],
                 ['Correo corporativo', String(selected.correo_corporativo || '—')],
@@ -943,7 +949,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {[
           { label: 'Personal vigente', value: totales.total ?? total, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Activos', value: totales.activos ?? '—', color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -976,14 +982,15 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full" style={{ tableLayout: 'fixed' }}>
+        <div className="overflow-x-auto">
+        <table className="w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[35%]">Nombre</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[20%]">Cargo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[22%]">Departamento</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[13%]">Estado</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[10%]">Acción</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Nombre</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cargo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Departamento</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Estado</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -1019,6 +1026,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
             ))}
           </tbody>
         </table>
+        </div>
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs text-slate-400">
             Mostrando {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE, total)} de <strong>{total}</strong> empleados
@@ -1077,7 +1085,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
               <div className="p-6">
                 {formTab === 'personal' && (
                   <div className="space-y-5">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {[['nombre', 'Nombres *'], ['apellido', 'Apellidos *'], ['cedula', 'Número de cédula *']].map(([k, l]) => (
                         <div key={k}>
                           <label className="block text-xs font-medium text-slate-600 mb-1">{l}</label>
@@ -1124,7 +1132,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                 )}
                 {formTab === 'laboral' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Departamento *</label>
                         <select required value={form.id_departamento} onChange={e => setForm({ ...form, id_departamento: e.target.value })}
