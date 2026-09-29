@@ -70,7 +70,8 @@ export default function App() {
        * harmless (you could conditionally apply it, but it doesn't hurt).
        * We use an inline style for the padding-top so it is immune to
        * Tailwind's JIT purging arbitrary values.
-       *)
+       **/}
+      
       <main
         className="flex-1 overflow-y-auto"
         style={{ paddingTop: 'var(--topbar-h, 48px)' }}
@@ -84,7 +85,7 @@ export default function App() {
          * flex-1 already excludes the sidebar width. We just need the
          * padding-top gone on desktop. The Sidebar injects a <style> tag
          * for this.
-         *)
+         **/}
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           {renderContent()}
         </div>
