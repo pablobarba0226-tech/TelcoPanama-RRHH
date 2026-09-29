@@ -51,16 +51,19 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
     : '—';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Dashboard principal</h2>
-          <p className="text-sm text-slate-500">Bienvenida, Ana López · Coordinadora de RRHH</p>
+      <div className="flex justify-between items-start gap-2">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight">Dashboard principal</h2>
+          <p className="text-xs sm:text-sm text-slate-500 truncate">Bienvenida, Ana López · Coordinadora de RRHH</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden sm:inline text-xs text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
             {new Date().toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
+          <span className="sm:hidden text-xs text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm whitespace-nowrap">
+            {new Date().toLocaleDateString('es-PA', { day: 'numeric', month: 'short' })}
           </span>
           <div className="relative">
             <button onClick={() => setShowAlertas(v => !v)}
@@ -73,7 +76,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
               )}
             </button>
             {showAlertas && (
-              <div className="absolute right-0 top-10 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50">
+              <div className="absolute right-0 top-10 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                   <h3 className="font-bold text-slate-800 text-sm">Alertas activas</h3>
                   <button onClick={() => setShowAlertas(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
@@ -101,29 +104,60 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
             <div key={k.label} onClick={() => onNavigate?.(k.tab)}
-              className={`bg-white rounded-xl border ${k.border} p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow`}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{k.label}</p>
-                <div className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 ${k.col}`} />
+              className={`bg-white rounded-xl border ${k.border} p-4 sm:p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide leading-tight pr-1">{k.label}</p>
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                  <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${k.col}`} />
                 </div>
               </div>
-              <p className={`text-3xl font-black ${k.col}`}>{k.value}</p>
+              <p className={`text-2xl sm:text-3xl font-black ${k.col}`}>{k.value}</p>
               <p className="text-xs text-blue-500 mt-1 font-medium hover:underline">{k.sub}</p>
             </div>
           );
         })}
       </div>
 
+      {/* Cumplimiento Legal — Ley laboral panameña */}
+      {stats && (stats.alerta_extranjeros || stats.alerta_discapacidad || stats.probatorio_por_vencer > 0) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-amber-600 font-bold text-sm">⚖️ Alertas de cumplimiento legal</span>
+            <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Ley laboral panameña</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`rounded-lg p-3 border ${stats.alerta_extranjeros ? 'bg-red-50 border-red-300' : 'bg-emerald-50 border-emerald-200'}`}>
+              <p className="text-xs font-semibold text-slate-600">Empleados extranjeros</p>
+              <p className={`text-2xl font-black mt-1 ${stats.alerta_extranjeros ? 'text-red-600' : 'text-emerald-600'}`}>{stats.pct_extranjeros?.toFixed(1)}%</p>
+              <p className="text-xs text-slate-400 mt-0.5">{stats.extranjeros} de {stats.total_vigente} · límite 10%</p>
+              {stats.alerta_extranjeros && <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Excede Art. 17 Código de Trabajo</p>}
+            </div>
+            <div className={`rounded-lg p-3 border ${stats.alerta_discapacidad ? 'bg-red-50 border-red-300' : 'bg-emerald-50 border-emerald-200'}`}>
+              <p className="text-xs font-semibold text-slate-600">Empleados con discapacidad</p>
+              <p className={`text-2xl font-black mt-1 ${stats.alerta_discapacidad ? 'text-red-600' : 'text-emerald-600'}`}>{stats.pct_discapacidad?.toFixed(1)}%</p>
+              <p className="text-xs text-slate-400 mt-0.5">{stats.con_discapacidad} de {stats.total_vigente} · mín 2%</p>
+              {stats.alerta_discapacidad && <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Incumple Ley 15/2016</p>}
+              {stats.total_vigente < 50 && <p className="text-xs text-slate-400 mt-1">No aplica ({'<'}50 empleados)</p>}
+            </div>
+            <div className={`rounded-lg p-3 border ${stats.probatorio_por_vencer > 0 ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}`}>
+              <p className="text-xs font-semibold text-slate-600">Período probatorio por vencer</p>
+              <p className={`text-2xl font-black mt-1 ${stats.probatorio_por_vencer > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{stats.probatorio_por_vencer || 0}</p>
+              <p className="text-xs text-slate-400 mt-0.5">empleados en últimas 2 semanas del período</p>
+              {stats.probatorio_por_vencer > 0 && <p className="text-xs text-amber-700 font-semibold mt-1">📋 Revisar evaluación de desempeño</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Charts row */}
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {/* Tasa de ausentismo */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-slate-800 text-sm">Tasa de ausentismo (%)</h3>
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Este mes</span>
@@ -175,7 +209,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
         </div>
 
         {/* Rotación mensual */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-slate-800 text-sm">Rotación mensual (ingresos vs salidas)</h3>
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Últimos meses</span>
@@ -198,9 +232,9 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
       </div>
 
       {/* Bottom row: Próximas vacaciones + Avisos + Atajos */}
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
         {/* Próximas vacaciones */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-slate-800 text-sm">Próximas vacaciones</h3>
             <button onClick={() => onNavigate?.('reports')} className="text-xs text-blue-500 hover:underline font-medium">Ver todas</button>
@@ -231,7 +265,7 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
         </div>
 
         {/* Avisos importantes (alertas) */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-slate-800 text-sm">Avisos importantes</h3>
             {alertas.length > 0 && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full">{alertas.length}</span>}
@@ -259,9 +293,9 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
         </div>
 
         {/* Atajos rápidos */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Atajos rápidos</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-3">
             {[
               { icon: UserPlus,     label: 'Nuevo empleado',      col: 'text-blue-600',   bg: 'bg-blue-50',   tab: 'personnel' },
               { icon: CalendarCheck,label: 'Registrar asistencia', col: 'text-emerald-600',bg: 'bg-emerald-50',tab: 'control' },
@@ -286,16 +320,18 @@ export default function DashboardView({ onNavigate }: { onNavigate?: (m: string,
       </div>
 
       {/* Empresa footer */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl p-5 text-white flex items-center gap-5">
-        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-xl font-black shrink-0">T</div>
-        <div className="flex-1">
-          <h3 className="font-bold">TelcoPanamá S.A.</h3>
-          <p className="text-blue-200 text-xs mt-0.5">Conectar a los panameños con tecnología de telecomunicaciones de clase mundial.</p>
+      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl p-4 sm:p-5 text-white">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black shrink-0">T</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-sm sm:text-base">TelcoPanamá S.A.</h3>
+            <p className="text-blue-200 text-xs mt-0.5 line-clamp-2 sm:line-clamp-none">Conectar a los panameños con tecnología de telecomunicaciones de clase mundial.</p>
+          </div>
         </div>
-        <div className="text-right text-xs text-blue-300 space-y-0.5 shrink-0">
-          <p>RUC: 155-789-1-2020</p>
-          <p>Área Bancaria, Calle 50</p>
-          <p>contacto@telcopanama.com.pa</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-3 text-xs text-blue-300">
+          <span>RUC: 155-789-1-2020</span>
+          <span>Área Bancaria, Calle 50</span>
+          <span>contacto@telcopanama.com.pa</span>
         </div>
       </div>
     </div>
