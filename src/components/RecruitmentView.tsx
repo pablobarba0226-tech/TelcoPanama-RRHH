@@ -5,7 +5,7 @@ interface Vacante {
   id: number; titulo: string; departamento_nombre?: string; descripcion?: string;
   palabras_clave?: string[]; estado: string; total_candidatos?: number;
   cantidad?: number; aprobados_count?: number;
-  fecha_apertura?: string; id_departamento?: number; salario_ofrecido?: number;
+  fecha_apertura?: string; fecha_limite?: string; id_departamento?: number; salario_ofrecido?: number;
 }
 interface Candidato {
   id: number; nombre: string; apellido?: string; correo?: string; cedula?: string;
@@ -80,7 +80,17 @@ export default function RecruitmentView() {
   const [filterEstado, setFilterEstado] = useState('');
 
   // Vacante form
-  const [vForm, setVForm] = useState({ titulo: '', id_departamento: '', descripcion: '', palabras_clave: '', salario_ofrecido: '', modalidad: 'Presencial', cantidad: '1' });
+  const [vForm, setVForm] = useState({
+    titulo: '', id_departamento: '', descripcion: '', palabras_clave: '',
+    salario_ofrecido: '', salario_max: '', modalidad: 'Presencial', cantidad: '1', fecha_limite: '',
+    // Enhanced fields from Formulario de Solicitud de Puesto
+    supervisado_por: '', tipo_puesto: '', ubicacion: '', fecha_necesaria: '',
+    resumen_puesto: '',
+    funcion1: '', dedicacion1: '', funcion2: '', dedicacion2: '', funcion3: '', dedicacion3: '',
+    formacion_academica: '', experiencia_requerida: '', habilidades: '',
+    genero_requerido: '', edad_minima: '', edad_maxima: '',
+    solicitado_por: '',
+  });
   // CV
   const [cvTexto, setCvTexto] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -148,7 +158,16 @@ export default function RecruitmentView() {
     });
     if (!resp.ok) { const d = await resp.json(); setError('Error: ' + d.error); return; }
     setShowVacanteModal(false);
-    setVForm({ titulo: '', id_departamento: '', descripcion: '', palabras_clave: '', salario_ofrecido: '', modalidad: 'Presencial', cantidad: '1' });
+    setVForm({
+      titulo: '', id_departamento: '', descripcion: '', palabras_clave: '',
+      salario_ofrecido: '', salario_max: '', modalidad: 'Presencial', cantidad: '1', fecha_limite: '',
+      supervisado_por: '', tipo_puesto: '', ubicacion: '', fecha_necesaria: '',
+      resumen_puesto: '',
+      funcion1: '', dedicacion1: '', funcion2: '', dedicacion2: '', funcion3: '', dedicacion3: '',
+      formacion_academica: '', experiencia_requerida: '', habilidades: '',
+      genero_requerido: '', edad_minima: '', edad_maxima: '',
+      solicitado_por: '',
+    });
     await cargarVacantesFresh();
     showMsg('✅ Convocatoria creada correctamente.');
   }
@@ -335,7 +354,7 @@ export default function RecruitmentView() {
               </div>
             </div>
             {(c.fortalezas_ia?.length || c.debilidades_ia?.length) && (
-              <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-700">
                 <div>
                   <p className="text-xs font-semibold text-emerald-400 mb-1 uppercase">💪 Fortalezas</p>
                   {c.fortalezas_ia?.map((f, i) => <p key={i} className="text-xs text-slate-300">• {f}</p>)}
@@ -420,9 +439,9 @@ export default function RecruitmentView() {
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Left: info */}
-          <div className="col-span-2 space-y-4">
+          <div className="sm:col-span-2 space-y-4">
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
                 <h3 className="text-sm font-semibold text-slate-700">👤 Información personal</h3>
@@ -672,10 +691,10 @@ export default function RecruitmentView() {
                 <span className="text-emerald-600">✅</span>
                 <p className="text-xs text-emerald-700 font-medium">Datos pre-llenados desde el análisis de IA. Completá la información laboral para activar el expediente.</p>
               </div>
-              <div className="flex border-b border-slate-200 px-5 mt-3">
-                {([['personal', '👤 Datos personales'], ['laboral', '💼 Información laboral'], ['emergencia', '📞 Contacto y emergencias']] as const).map(([id, lbl]) => (
+              <div className="flex border-b border-slate-200 px-5 mt-3 overflow-x-auto">
+                {([['personal', '👤 Personal'], ['laboral', '💼 Laboral'], ['emergencia', '📞 Emergencias']] as const).map(([id, lbl]) => (
                   <button key={id} onClick={() => setConvertTab(id)}
-                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${convertTab === id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${convertTab === id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                     {lbl}
                   </button>
                 ))}
@@ -866,19 +885,19 @@ export default function RecruitmentView() {
         </div>
       )}
 
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Reclutamiento Inteligente</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Reclutamiento Inteligente</h2>
           <p className="text-sm text-slate-500 mt-0.5">Convocatorias, análisis de CVs con IA y gestión de candidatos</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <button onClick={() => { setShowAnalyzeModal(true); setAnalyzeVacanteId(null); setError(''); }}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            <Sparkles className="w-4 h-4" /> Analizar CV con IA
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+            <Sparkles className="w-4 h-4 shrink-0" /> Analizar CV con IA
           </button>
           <button onClick={() => setShowVacanteModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            <Plus className="w-4 h-4" /> Nueva convocatoria
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+            <Plus className="w-4 h-4 shrink-0" /> Nueva convocatoria
           </button>
         </div>
       </div>
@@ -900,7 +919,7 @@ export default function RecruitmentView() {
 
       {view === 'vacantes' && (
         <div>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             {[
               { label: 'Convocatorias abiertas', value: vacantes.filter(v => v.estado === 'Abierta').length, color: 'text-blue-600', bg: 'bg-blue-50' },
               { label: 'CVs recibidos (total)', value: vacantes.reduce((s, v) => s + (v.total_candidatos || 0), 0), color: 'text-purple-600', bg: 'bg-purple-50' },
@@ -926,34 +945,43 @@ export default function RecruitmentView() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-bold text-white text-lg">{v.titulo}</h3>
-                      <p className="text-slate-400 text-sm mt-0.5">{v.departamento_nombre} · {v.fecha_apertura}</p>
+                      <p className="text-slate-400 text-sm mt-0.5">{v.departamento_nombre} · {(v.fecha_apertura||'').slice(0,10)}</p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${v.estado === 'Abierta' ? 'bg-emerald-500 text-white' : 'bg-slate-600 text-slate-300'}`}>{v.estado}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${v.estado === 'Abierta' ? 'bg-emerald-500 text-white' : 'bg-slate-600 text-slate-300'}`}>{v.estado}</span>
+                      {v.fecha_limite && v.estado === 'Abierta' && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 ${new Date(v.fecha_limite) < new Date() ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-900'}`}>
+                          <Calendar className="w-3 h-3" />
+                          Límite: {v.fecha_limite.slice(0,10)}
+                          {new Date(v.fecha_limite) < new Date() ? ' ⚠️ VENCIDA' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {v.palabras_clave?.slice(0, 6).map(k => <span key={k} className="bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded text-xs">{k}</span>)}
                     {(v.palabras_clave?.length || 0) > 6 && <span className="text-slate-500 text-xs">+{(v.palabras_clave?.length || 0) - 6}</span>}
                   </div>
                 </div>
-                <div className="p-4 flex items-center gap-6">
-                  <div className="text-center">
+                <div className="p-4 flex flex-wrap items-center gap-3">
+                  <div className="text-center shrink-0">
                     <p className="text-2xl font-bold text-blue-600">{v.total_candidatos || 0}</p>
                     <p className="text-xs text-slate-400">CVs recibidos</p>
                   </div>
-                  {v.salario_ofrecido && <div className="text-sm text-slate-500">${Number(v.salario_ofrecido).toLocaleString()}/mes</div>}
-                  <div className="text-center">
+                  {v.salario_ofrecido && <div className="text-sm text-slate-500 shrink-0">${Number(v.salario_ofrecido).toLocaleString()}/mes</div>}
+                  <div className="text-center shrink-0">
                     <p className={`text-lg font-bold ${(v.aprobados_count||0)>=(v.cantidad||1)?'text-emerald-600':'text-purple-600'}`}>
                       {v.aprobados_count||0}/{v.cantidad||1}
                     </p>
                     <p className="text-xs text-slate-400">plazas cubiertas</p>
                   </div>
-                  <div className="ml-auto flex gap-2">
+                  <div className="flex gap-2 ml-auto flex-wrap">
                     <button onClick={() => { setAnalyzeVacanteId(v.id); setShowAnalyzeModal(true); setError(''); }}
-                      className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100">
-                      <Sparkles className="w-3.5 h-3.5" /> Cargar CVs
+                      className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100 whitespace-nowrap shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Cargar CVs
                     </button>
                     <button onClick={() => { setSelectedVacante(v); setView('candidatos'); }}
-                      className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100">
+                      className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100 whitespace-nowrap shrink-0">
                       Ver candidatos →
                     </button>
                   </div>
@@ -975,7 +1003,7 @@ export default function RecruitmentView() {
               </div>
             </div>
           )}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {['Recibido', 'En revisión', 'Entrevistado', 'Aprobado', 'Descartado'].map(e => (
               <div key={e} className="bg-white rounded-xl p-3 border border-slate-200 text-center">
                 <p className="text-2xl font-bold text-slate-800">{candidatos.filter(c => c.estado === e).length}</p>
@@ -1096,62 +1124,209 @@ export default function RecruitmentView() {
       {/* Modal nueva convocatoria */}
       {showVacanteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-5 border-b border-slate-200 sticky top-0 bg-white">
-              <h3 className="font-bold text-slate-900">Nueva convocatoria</h3>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-5 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">Nueva convocatoria</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Formulario de Solicitud de Puesto</p>
+              </div>
               <button onClick={() => setShowVacanteModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
             </div>
-            <form onSubmit={guardarVacante} className="p-5 space-y-3">
+            <form onSubmit={guardarVacante} className="p-5 space-y-5">
               {error && <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm text-red-700">{error}</div>}
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Nombre del puesto *</label>
-                <input required value={vForm.titulo} onChange={e => setVForm({ ...vForm, titulo: e.target.value })}
-                  placeholder="Ej. Desarrollador Full Stack"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+
+              {/* Sección 1: Identificación del puesto */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">📋 Identificación del puesto</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Nombre del puesto / Cargo *</label>
+                    <input required value={vForm.titulo} onChange={e => setVForm({ ...vForm, titulo: e.target.value })}
+                      placeholder="Ej. Desarrollador Full Stack"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
+                    <select value={vForm.id_departamento} onChange={e => setVForm({ ...vForm, id_departamento: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
+                      <option value="">Seleccione</option>
+                      {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Supervisado por</label>
+                    <input value={vForm.supervisado_por} onChange={e => setVForm({ ...vForm, supervisado_por: e.target.value })}
+                      placeholder="Nombre del supervisor directo"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de posición</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Exento', 'No exento', 'Temporal', 'Medio tiempo'].map(t => (
+                        <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" checked={vForm.tipo_puesto === t} onChange={() => setVForm({ ...vForm, tipo_puesto: t })} className="accent-blue-600" />
+                          {t}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad</label>
+                    <select value={vForm.modalidad} onChange={e => setVForm({ ...vForm, modalidad: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
+                      {['Presencial', 'Híbrido', 'Remoto'].map(m => <option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Ubicación / Sucursal</label>
+                    <input value={vForm.ubicacion} onChange={e => setVForm({ ...vForm, ubicacion: e.target.value })}
+                      placeholder="Ej. Ciudad de Panamá, Sede Central"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Escala salarial (USD)</label>
+                    <div className="flex gap-2 items-center">
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" value={vForm.salario_ofrecido} onChange={e => setVForm({ ...vForm, salario_ofrecido: e.target.value })}
+                          placeholder="Mínimo" className="w-full border border-slate-200 rounded-lg pl-6 pr-2 py-2 text-sm outline-none" />
+                      </div>
+                      <span className="text-slate-400 text-sm shrink-0">–</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input type="number" value={vForm.salario_max} onChange={e => setVForm({ ...vForm, salario_max: e.target.value })}
+                          placeholder="Máximo" className="w-full border border-slate-200 rounded-lg pl-6 pr-2 py-2 text-sm outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Plazas disponibles *</label>
+                    <input type="number" required min="1" value={vForm.cantidad} onChange={e => setVForm({ ...vForm, cantidad: e.target.value })}
+                      placeholder="1" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Fecha necesaria</label>
+                    <input type="date" value={vForm.fecha_necesaria} onChange={e => setVForm({ ...vForm, fecha_necesaria: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Fecha límite de convocatoria</label>
+                    <input type="date" value={vForm.fecha_limite} onChange={e => setVForm({ ...vForm, fecha_limite: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
-                <select value={vForm.id_departamento} onChange={e => setVForm({ ...vForm, id_departamento: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-                  <option value="">Seleccione</option>
-                  {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Descripción del puesto</label>
-                <textarea value={vForm.descripcion} onChange={e => setVForm({ ...vForm, descripcion: e.target.value })} rows={2}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Palabras clave (separadas por coma) *</label>
-                <input required value={vForm.palabras_clave} onChange={e => setVForm({ ...vForm, palabras_clave: e.target.value })}
-                  placeholder="Java, C++, Python, SQL..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                <p className="text-xs text-slate-400 mt-1">La IA buscará variantes semánticas (ej: SQL → PostgreSQL, MySQL)</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Sección 2: Resumen del puesto */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">📝 Resumen del puesto</h4>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Salario ofrecido (USD)</label>
-                  <input type="number" value={vForm.salario_ofrecido} onChange={e => setVForm({ ...vForm, salario_ofrecido: e.target.value })}
+                  <textarea value={vForm.resumen_puesto} onChange={e => setVForm({ ...vForm, resumen_puesto: e.target.value })} rows={3}
+                    placeholder="Describa brevemente el propósito y alcance del puesto..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
+                </div>
+              </div>
+
+              {/* Sección 3: Funciones esenciales */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">⚙️ Funciones esenciales del cargo</h4>
+                {([['funcion1', 'dedicacion1'], ['funcion2', 'dedicacion2'], ['funcion3', 'dedicacion3']] as const).map(([fk, dk], i) => (
+                  <div key={fk} className="flex gap-2 items-start">
+                    <span className="text-xs text-slate-400 font-bold mt-2.5 shrink-0 w-4">{i + 1}.</span>
+                    <input value={vForm[fk]} onChange={e => setVForm({ ...vForm, [fk]: e.target.value })}
+                      placeholder={`Función ${i + 1}...`}
+                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                    <div className="shrink-0 w-24">
+                      <div className="relative">
+                        <input type="number" min="0" max="100" value={vForm[dk]} onChange={e => setVForm({ ...vForm, [dk]: e.target.value })}
+                          placeholder="%" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none pr-6" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-400">Porcentaje de dedicación por función (debe sumar 100%)</p>
+              </div>
+
+              {/* Sección 4: Requisitos mínimos */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">🎓 Requisitos mínimos</h4>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Formación académica</label>
+                  <input value={vForm.formacion_academica} onChange={e => setVForm({ ...vForm, formacion_academica: e.target.value })}
+                    placeholder="Ej. Licenciatura en Ingeniería de Sistemas o carrera afín"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Plazas disponibles *</label>
-                  <input type="number" required min="1" value={vForm.cantidad} onChange={e => setVForm({ ...vForm, cantidad: e.target.value })}
-                    placeholder="1" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
-                  <p className="text-xs text-slate-400 mt-1">Al cubrir todas las plazas se cierra automáticamente.</p>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Experiencia requerida</label>
+                  <input value={vForm.experiencia_requerida} onChange={e => setVForm({ ...vForm, experiencia_requerida: e.target.value })}
+                    placeholder="Ej. Mínimo 3 años en posiciones similares"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Género</label>
+                    <select value={vForm.genero_requerido} onChange={e => setVForm({ ...vForm, genero_requerido: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
+                      <option value="">Indistinto</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Femenino">Femenino</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Edad mínima</label>
+                    <input type="number" min="18" max="99" value={vForm.edad_minima} onChange={e => setVForm({ ...vForm, edad_minima: e.target.value })}
+                      placeholder="18" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Edad máxima</label>
+                    <input type="number" min="18" max="99" value={vForm.edad_maxima} onChange={e => setVForm({ ...vForm, edad_maxima: e.target.value })}
+                      placeholder="65" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad</label>
-                  <select value={vForm.modalidad} onChange={e => setVForm({ ...vForm, modalidad: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-                    {['Presencial', 'Híbrido', 'Remoto'].map(m => <option key={m}>{m}</option>)}
-                  </select>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Habilidades y conocimientos específicos</label>
+                  <textarea value={vForm.habilidades} onChange={e => setVForm({ ...vForm, habilidades: e.target.value })} rows={2}
+                    placeholder="Ej. Manejo de Excel avanzado, conocimiento en normativas laborales..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
                 </div>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowVacanteModal(false)} className="flex-1 border border-slate-200 text-slate-600 py-2 rounded-lg text-sm">Cancelar</button>
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium">Crear convocatoria</button>
+
+              {/* Sección 5: Palabras clave para IA */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">🤖 Análisis de IA</h4>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Palabras clave para análisis de CVs *</label>
+                  <input required value={vForm.palabras_clave} onChange={e => setVForm({ ...vForm, palabras_clave: e.target.value })}
+                    placeholder="Java, C++, Python, SQL, liderazgo..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400" />
+                  <p className="text-xs text-slate-400 mt-1">La IA buscará variantes semánticas. Separar por comas.</p>
+                </div>
+              </div>
+
+              {/* Sección 6: Solicitado por */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">✍️ Solicitado por</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Nombre del solicitante</label>
+                    <input value={vForm.solicitado_por} onChange={e => setVForm({ ...vForm, solicitado_por: e.target.value })}
+                      placeholder="Nombre completo"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Descripción adicional del puesto</label>
+                    <textarea value={vForm.descripcion} onChange={e => setVForm({ ...vForm, descripcion: e.target.value })} rows={2}
+                      placeholder="Información adicional que la IA debe considerar al evaluar candidatos..."
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+                <button type="button" onClick={() => setShowVacanteModal(false)} className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium">✅ Crear convocatoria</button>
               </div>
             </form>
           </div>
