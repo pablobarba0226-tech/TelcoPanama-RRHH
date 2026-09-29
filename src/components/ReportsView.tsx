@@ -196,12 +196,12 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-wrap gap-2 justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Reportes y Dashboards</h2>
           <p className="text-sm text-slate-500 mt-0.5">Análisis de datos de RRHH con thresholds de alerta automáticos</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {data && (
             <button onClick={exportCurrentReport}
               className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-medium">
@@ -222,7 +222,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             <AlertTriangle className="w-4 h-4 text-amber-500" />
             <h3 className="font-semibold text-slate-800 text-sm">Alertas activas ({alertas.length})</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {alertas.map((a: any) => (
               <div key={a.id} className={`border-l-4 rounded-r-lg p-2.5 ${nivelStyle(a.nivel)}`}>
                 <p className="text-xs font-semibold truncate">{a.titulo}</p>
@@ -279,7 +279,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             {/* ── R0: Resumen General ──────────────────────────────────────────── */}
       {!loading && tab === 'r0' && data && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Empleados */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
               <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -358,7 +358,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             {/* Vacaciones */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
               <h3 className="font-bold text-slate-800 mb-4">Vacaciones pendientes</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Con +15 días pend.', value: data.vacaciones?.criticas || 0, color: 'text-red-700', bg: 'bg-red-50' },
                   { label: 'Días pend. promedio', value: data.vacaciones?.promedio_pendientes || '—', color: 'text-amber-700', bg: 'bg-amber-50' },
@@ -394,7 +394,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
               <span>🎯</span> Reclutamiento
             </h3>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Vacantes abiertas',  value: data.reclutamiento?.vacantes_abiertas ?? 0,   color: 'text-blue-700',    bg: 'bg-blue-50' },
                 { label: 'Vacantes cerradas',  value: data.reclutamiento?.vacantes_cerradas ?? 0,   color: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -422,7 +422,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             {/* ── R1: Asistencia diaria ─────────────────────────────────────────────── */}
       {!loading && tab === 'r1' && data && data.registros !== undefined && (
         <div className="space-y-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {[
               { label: 'Total registros', value: data.resumen?.total || 0,     color: 'text-slate-800',   bg: 'bg-slate-50' },
               { label: 'Presentes',       value: data.resumen?.presentes || 0, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -445,6 +445,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
               <h3 className="font-semibold text-slate-800">Detalle — Día anterior</h3>
               {onNavigate && <span className="text-xs text-slate-400">Clic en nombre → perfil de asistencia</span>}
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Empleado','Departamento','Cargo','Entrada','Salida','Estado','Tardanza'].map(h => (
@@ -475,6 +476,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            </div>
             {(() => { const f=(data.registros||[]).filter((r:any)=>!filterEstado||r.estado===filterEstado); return <Paginacion total={f.length} page={page} setPage={setPage} />; })()}
           </div>
         </div>
@@ -503,6 +505,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 {onNavigate && <span className="text-xs text-slate-400">| Clic en nombre → perfil de asistencia</span>}
               </div>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Empleado','Departamento','Días','Presentes','Tardanzas','Aus. injust.','% Asistencia'].map(h => (
@@ -533,6 +536,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            </div>
             <Paginacion total={(data.por_empleado||[]).length} page={page} setPage={setPage} />
           </div>
         </div>
@@ -577,6 +581,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                   </button>
                 )}
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-slate-200">
                   {['Capacitación','Tipo','Depto.','Estado','Inscritos','Completados','Nota prom.','% Aprobación'].map(h => (
@@ -603,6 +608,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -657,6 +663,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800 text-sm">Resumen por departamento</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Departamento','Empleados','Prom. /5','Puntaje /100','⭐ Excelente','✓ Bueno','~ Regular','↓ Bajo','Sin eval.'].map(h => (
@@ -693,6 +700,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Tabla individual */}
@@ -701,6 +709,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
               <h3 className="font-semibold text-slate-800 text-sm">Detalle por empleado</h3>
               <span className="text-xs text-slate-400">{rangoFiltrado.length} empleados{filterRango ? ` con puntaje ${filterRango}%` : ''}</span>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Empleado','Departamento','Cargo','Eval /5','Puntaje /100','Proyectos','% Entrega','Tard.','Aus.'].map(h => (
@@ -756,6 +765,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
+            </div>
             <Paginacion total={rangoFiltrado.length} page={page} setPage={setPage} />
           </div>
         </div>
@@ -766,7 +776,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
       {!loading && tab === 'r6' && data && (
         <div className="space-y-5">
           {/* KPI cards */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
               { label: 'Empleados activos',     value: data.resumen?.totalEmpleados || 0, color: 'text-slate-800',   bg: 'bg-slate-50' },
               { label: 'Días pendientes total', value: data.resumen?.totalPendientes || 0, color: 'text-blue-700',   bg: 'bg-blue-50' },
@@ -789,7 +799,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 <h3 className="font-bold text-red-800">{data.alerta15.length} empleado{data.alerta15.length>1?'s':''} con más de 15 días pendientes</h3>
                 {onNavigate && <span className="text-xs text-red-400 ml-auto">Clic en nombre → perfil vacaciones</span>}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(data.alerta15||[]).map((e: any) => (
                   <div key={e.id_empleado} className="bg-white rounded-lg border border-red-200 px-4 py-2.5 flex items-center justify-between">
                     <div>
@@ -814,6 +824,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
               <h3 className="font-semibold text-slate-800">Saldos de vacaciones por empleado</h3>
               {onNavigate && <span className="text-xs text-slate-400">Clic en nombre → perfil</span>}
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Empleado','Departamento','Antigüedad','Acumulados','Tomados','Pendientes','Costo pasivo','Estado'].map(h => (
@@ -851,6 +862,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 })}
               </tbody>
             </table>
+            </div>
             <Paginacion total={(data.saldos||[]).length} page={page} setPage={setPage} />
           </div>
 
@@ -862,6 +874,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             {(data.tomadas||[]).length === 0 ? (
               <p className="text-slate-400 text-sm text-center py-10">Sin vacaciones registradas este año</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-slate-200">
                   {['Empleado','Departamento','Desde','Hasta','Días','Motivo'].map(h => (
@@ -881,6 +894,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -889,7 +903,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             {/* ── R5: Rotación ─────────────────────────────────────────────────────── */}
       {!loading && tab === 'r5' && data && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <h3 className="font-semibold text-slate-800 mb-4">Ingresos vs Salidas mensuales</h3>
               <ResponsiveContainer width="100%" height={200}>
@@ -923,6 +937,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             <div className="p-4 border-b border-slate-200 bg-slate-50">
               <h3 className="font-semibold text-slate-800">Rotación por departamento — últimos 6 meses</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Departamento','Ingresos (6m)','Salidas (6m)','Balance'].map(h => (
@@ -946,6 +961,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -966,7 +982,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
           </div>
 
           {/* KPI por estado */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {(data.por_estado || []).map((e: any) => {
               const cfg: Record<string, { col: string; bg: string; icon: string }> = {
                 'Presente':   { col: 'text-emerald-700', bg: 'bg-emerald-50', icon: '✅' },
@@ -1021,6 +1037,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
             <div className="p-4 border-b border-slate-200 bg-slate-50">
               <h4 className="font-semibold text-slate-800 text-sm">Por departamento — {data.fecha_consultada}</h4>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-slate-200">
                 {['Departamento','Total','Presentes','Tardanzas','Ausentes','Vacaciones','% Asistencia'].map(h => (
@@ -1051,14 +1068,16 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Top tardanzas y ausencias */}
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
                 <h4 className="font-semibold text-amber-800 text-sm">⏰ Top 10 empleados con más tardanzas (mes)</h4>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-slate-200">
                   {['Empleado','Depto.','Tardanzas','Prom. min'].map(h => (
@@ -1081,12 +1100,14 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                   {!(data.top_tardanzas?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin tardanzas este mes</td></tr>}
                 </tbody>
               </table>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="px-4 py-3 bg-red-50 border-b border-red-100">
                 <h4 className="font-semibold text-red-800 text-sm">❌ Top 10 empleados con más ausencias (mes)</h4>
               </div>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-slate-200">
                   {['Empleado','Depto.','Ausencias','Injust.'].map(h => (
@@ -1113,6 +1134,7 @@ export default function ReportsView({ onNavigate }: { onNavigate?: NavigateFn })
                   {!(data.top_ausencias?.length) && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-xs">Sin ausencias este mes</td></tr>}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
