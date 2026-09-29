@@ -89,15 +89,15 @@ function TabAsistencia({ empId }: { empId: number }) {
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Asistencia', value: `${pctPresente}%`, sub: `${resumen.presentes} días`, col: pctPresente >= 90 ? 'text-emerald-600 bg-emerald-50' : pctPresente >= 75 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50' },
-          { label: 'Tardanzas', value: resumen.tardanzas, sub: `${resumen.tardanzas_injustificadas} injustificadas`, col: 'text-amber-600 bg-amber-50' },
-          { label: 'Ausencias', value: resumen.ausentes, sub: `${resumen.ausencias_injustificadas} injustificadas`, col: 'text-red-600 bg-red-50' },
-          { label: 'Prom. tardanza', value: resumen.promedio_tardanza ? `${resumen.promedio_tardanza} min` : '—', sub: 'cuando hay tardanza', col: 'text-purple-600 bg-purple-50' },
+          { label: 'Asistencia', value: `${pctPresente}%`, sub: `${resumen.presentes} días presentes`, col: pctPresente >= 90 ? 'text-emerald-600 bg-emerald-50' : pctPresente >= 75 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50' },
+          { label: 'Tardanzas', value: resumen.tardanzas, sub: `${resumen.tardanzas_injustificadas} injust.`, col: 'text-amber-600 bg-amber-50' },
+          { label: 'Ausencias', value: resumen.ausentes, sub: `${resumen.ausencias_injustificadas} injust.`, col: 'text-red-600 bg-red-50' },
+          { label: 'Prom. tardanza', value: resumen.promedio_tardanza ? `${resumen.promedio_tardanza} min` : '—', sub: 'promedio al llegar tarde', col: 'text-purple-600 bg-purple-50' },
         ].map(k => (
-          <div key={k.label} className={`rounded-xl p-4 border border-slate-100 ${k.col.split(' ')[1]}`}>
-            <p className="text-xs text-slate-500 font-medium">{k.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${k.col.split(' ')[0]}`}>{k.value}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{k.sub}</p>
+          <div key={k.label} className={`rounded-xl p-3 border border-slate-100 ${k.col.split(' ')[1]}`}>
+            <p className="text-xs text-slate-500 font-medium leading-tight">{k.label}</p>
+            <p className={`text-xl font-bold mt-1 ${k.col.split(' ')[0]}`}>{k.value}</p>
+            <p className="text-xs text-slate-400 mt-0.5 leading-tight">{k.sub}</p>
           </div>
         ))}
       </div>
@@ -133,11 +133,11 @@ function TabAsistencia({ empId }: { empId: number }) {
       {/* Records table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[500px]">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               {['Fecha', 'Entrada', 'Salida', 'Estado', 'Tardanza', 'Justificado'].map(h => (
-                <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
@@ -147,17 +147,17 @@ function TabAsistencia({ empId }: { empId: number }) {
             )}
             {registros.slice(0, 30).map((r: any, i: number) => (
               <tr key={i} className="hover:bg-slate-50">
-                <td className="px-4 py-2.5 text-sm text-slate-700 font-medium">{String(r.fecha).slice(0, 10)}</td>
-                <td className="px-4 py-2.5 text-sm text-slate-600">{r.hora_entrada || '—'}</td>
-                <td className="px-4 py-2.5 text-sm text-slate-600">{r.hora_salida || '—'}</td>
+                <td className="px-4 py-2.5 text-sm text-slate-700 font-medium whitespace-nowrap">{String(r.fecha).slice(0, 10)}</td>
+                <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap">{r.hora_entrada || '—'}</td>
+                <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap">{r.hora_salida || '—'}</td>
                 <td className="px-4 py-2.5">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
                     r.estado === 'Presente' ? 'bg-emerald-100 text-emerald-700' :
                     r.estado === 'Tardanza' ? 'bg-amber-100 text-amber-700' :
                     r.estado === 'Ausente'  ? 'bg-red-100 text-red-600' :
                     'bg-blue-100 text-blue-700'}`}>{r.estado}</span>
                 </td>
-                <td className="px-4 py-2.5 text-sm text-slate-500">{r.minutos_tardanza > 0 ? `${r.minutos_tardanza} min` : '—'}</td>
+                <td className="px-4 py-2.5 text-sm text-slate-500 whitespace-nowrap">{r.minutos_tardanza > 0 ? `${r.minutos_tardanza} min` : '—'}</td>
                 <td className="px-4 py-2.5 text-sm">
                   {r.justificado ? <span className="text-emerald-600 font-medium">✓ Sí</span> : <span className="text-slate-400">—</span>}
                 </td>
@@ -223,7 +223,7 @@ function TabVacaciones({ empId }: { empId: number }) {
           <p className={`text-sm font-medium ${costoVacaciones ? 'text-emerald-600' : 'text-slate-600'}`}>Costo estimado vacaciones</p>
           {costoVacaciones ? (
             <>
-              <p className="text-3xl font-bold text-emerald-700 mt-1">${Number(costoVacaciones).toLocaleString()}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-700 mt-1 break-all">${Number(costoVacaciones).toLocaleString()}</p>
               <p className="text-xs text-emerald-500 mt-1">${salarioDiario}/día × {pendientes} días</p>
             </>
           ) : (
@@ -696,6 +696,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
+  const [filterCargo, setFilterCargo] = useState('');
   const [selected, setSelected] = useState<Empleado | null>(null);
   const [activeTab, setActiveTab] = useState('datos');
   const [induccion, setInduccion] = useState<any[]>([]);
@@ -716,8 +717,8 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => { cargarDatos(); }, []);
-  useEffect(() => { setPage(1); }, [search, filterDept, filterEstado]);
-  useEffect(() => { cargarEmpleados(); }, [search, filterDept, filterEstado, page]);
+  useEffect(() => { setPage(1); }, [search, filterDept, filterEstado, filterCargo]);
+  useEffect(() => { cargarEmpleados(); }, [search, filterDept, filterEstado, filterCargo, page]);
 
   // Deep link: auto-open specific employee profile at specific tab
   useEffect(() => {
@@ -765,6 +766,7 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
     if (search) p.set('search', search);
     if (filterDept) p.set('dept', filterDept);
     if (filterEstado) p.set('estado', filterEstado);
+    if (filterCargo) p.set('cargo', filterCargo);
     p.set('limit', String(PAGE_SIZE));
     p.set('page', String(page));
     const r = await fetch(`/api/empleados?${p}`);
@@ -838,24 +840,43 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
         </div>
 
         {/* Header */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shrink-0">
-            {selected.nombre[0]}{selected.apellido?.split(' ')[0]?.[0] || ''}
-          </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-slate-900">{selected.nombre} {selected.apellido}</h2>
-            <p className="text-slate-500 text-sm">{selected.cargo_titulo || '—'} · {selected.departamento_nombre || '—'}</p>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${estadoBadge(selected.estado)}`}>{selected.estado}</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">{selected.codigo_empleado}</span>
-              {selected.modalidad && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{selected.modalidad}</span>}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          {/* Fila superior: avatar + nombre + badges */}
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+              {selected.nombre[0]}{selected.apellido?.split(' ')[0]?.[0] || ''}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">{selected.nombre} {selected.apellido}</h2>
+              <p className="text-slate-500 text-sm mt-0.5">{selected.cargo_titulo || '—'}</p>
+              <p className="text-slate-400 text-xs">{selected.departamento_nombre || '—'}</p>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${estadoBadge(selected.estado)}`}>{selected.estado}</span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">{selected.codigo_empleado}</span>
+                {selected.modalidad && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{selected.modalidad}</span>}
+              </div>
             </div>
           </div>
-          <div className="text-right text-sm text-slate-500 space-y-1">
-            <p>Ingreso: <strong>{String(selected.fecha_ingreso || '').slice(0, 10)}</strong></p>
-            <p>Contrato: <strong>{selected.tipo_contrato}</strong></p>
-            <p>Salario: <strong>${Number(selected.salario_base || 0).toLocaleString()}</strong></p>
-            {selected.dias_pendientes != null && <p>Vacaciones: <strong className="text-blue-600">{selected.dias_pendientes} días</strong></p>}
+          {/* Fila inferior: datos clave en grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Ingreso</p>
+              <p className="text-sm font-semibold text-slate-700">{String(selected.fecha_ingreso || '').slice(0, 10) || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Contrato</p>
+              <p className="text-sm font-semibold text-slate-700">{selected.tipo_contrato || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Salario</p>
+              <p className="text-sm font-semibold text-slate-700">${Number(selected.salario_base || 0).toLocaleString()}</p>
+            </div>
+            {selected.dias_pendientes != null && (
+              <div>
+                <p className="text-xs text-slate-400 font-medium">Vacaciones</p>
+                <p className="text-sm font-semibold text-blue-600">{selected.dias_pendientes} días</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -963,34 +984,59 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-1 border border-slate-200 rounded-lg px-3 py-2">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar empleado..."
-            className="flex-1 text-sm outline-none" />
+      <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+        {/* Buscador */}
+        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre, código o cédula..."
+            className="flex-1 text-sm outline-none min-w-0" />
+          {search && <button onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>}
         </div>
-        <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-          <option value="">Todos los departamentos</option>
-          {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-        </select>
-        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
-          <option value="">Todos los estados</option>
-          {['Activo', 'Inactivo', 'Vacaciones', 'Licencia', 'En periodo de prueba'].map(e => <option key={e}>{e}</option>)}
-        </select>
+        {/* Filtros en fila con scroll horizontal */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none shrink-0 bg-white">
+            <option value="">Todos los departamentos</option>
+            {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+          </select>
+          <select value={filterCargo} onChange={e => setFilterCargo(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none shrink-0 bg-white">
+            <option value="">Todos los cargos</option>
+            {cargos
+              .filter((c: any) => !filterDept || c.id_departamento === Number(filterDept))
+              .map((c: any) => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+          </select>
+          <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none shrink-0 bg-white">
+            <option value="">Todos los estados</option>
+            {['Activo', 'Inactivo', 'Vacaciones', 'Licencia', 'En periodo de prueba'].map(e => <option key={e}>{e}</option>)}
+          </select>
+          {(filterDept || filterCargo || filterEstado) && (
+            <button onClick={() => { setFilterDept(''); setFilterCargo(''); setFilterEstado(''); }}
+              className="shrink-0 px-3 py-2 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 bg-white font-medium">
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+        {/* Indicador de resultados activos */}
+        {(search || filterDept || filterCargo || filterEstado) && (
+          <p className="text-xs text-slate-500">
+            Mostrando <strong>{total}</strong> resultado{total !== 1 ? 's' : ''}
+            {search && <> para "<strong>{search}</strong>"</>}
+          </p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[620px]">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Nombre</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cargo</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Departamento</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Estado</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Acción</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[34%]">Nombre</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[22%]">Cargo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[22%]">Departamento</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[12%]">Estado</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase w-[10%]">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -1009,16 +1055,16 @@ export default function EmployeesView({ deepLink, onDeepLinkConsumed }: { deepLi
                       {emp.nombre[0]}{emp.apellido?.split(' ')[0]?.[0] || ''}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{emp.nombre} {emp.apellido}</p>
+                      <p className="text-sm font-semibold text-slate-800">{emp.nombre} {emp.apellido}</p>
                       <p className="text-xs text-slate-400">{emp.codigo_empleado}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600 truncate">{emp.cargo_titulo || '—'}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 truncate">{emp.departamento_nombre || '—'}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{emp.cargo_titulo || '—'}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{emp.departamento_nombre || '—'}</td>
                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${estadoBadge(emp.estado)}`}>{emp.estado}</span></td>
                 <td className="px-4 py-3">
-                  <button className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                  <button className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium whitespace-nowrap">
                     Ver perfil <ChevronRight className="w-4 h-4" />
                   </button>
                 </td>
