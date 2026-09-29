@@ -47,7 +47,8 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={(tab) => { setDeepLink(null); setActiveTab(tab); }}
       />
-      <main className="flex-1 p-8 overflow-y-auto">
+      {/* pt-12 on mobile to clear the fixed top bar; sm: reverts to normal */}
+      <main className="flex-1 pt-12 sm:pt-0 p-4 sm:p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
