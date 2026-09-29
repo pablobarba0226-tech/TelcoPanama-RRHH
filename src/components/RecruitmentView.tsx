@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calendar } from 'lucide-react';
 
+interface VacanteFuncion { descripcion: string; dedicacion: string; }
 interface Vacante {
   id: number; titulo: string; departamento_nombre?: string; descripcion?: string;
   palabras_clave?: string[]; estado: string; total_candidatos?: number;
   cantidad?: number; aprobados_count?: number;
-  fecha_apertura?: string; fecha_limite?: string; id_departamento?: number; salario_ofrecido?: number;
+  fecha_apertura?: string; fecha_limite?: string; id_departamento?: number;
+  salario_ofrecido?: number; salario_max?: number;
+  supervisado_por?: string; tipo_puesto?: string; ubicacion?: string;
+  fecha_necesaria?: string; resumen_puesto?: string;
+  funciones?: VacanteFuncion[];
+  formacion_academica?: string; experiencia_requerida?: string; habilidades?: string;
+  genero_requerido?: string; edad_minima?: number; edad_maxima?: number;
+  solicitado_por?: string;
 }
 interface Candidato {
   id: number; nombre: string; apellido?: string; correo?: string; cedula?: string;
@@ -80,17 +88,21 @@ export default function RecruitmentView() {
   const [filterEstado, setFilterEstado] = useState('');
 
   // Vacante form
-  const [vForm, setVForm] = useState({
-    titulo: '', id_departamento: '', descripcion: '', palabras_clave: '',
+  const emptyVForm = () => ({
+    titulo: '', id_departamento: '', descripcion: '',
     salario_ofrecido: '', salario_max: '', modalidad: 'Presencial', cantidad: '1', fecha_limite: '',
-    // Enhanced fields from Formulario de Solicitud de Puesto
     supervisado_por: '', tipo_puesto: '', ubicacion: '', fecha_necesaria: '',
     resumen_puesto: '',
-    funcion1: '', dedicacion1: '', funcion2: '', dedicacion2: '', funcion3: '', dedicacion3: '',
     formacion_academica: '', experiencia_requerida: '', habilidades: '',
     genero_requerido: '', edad_minima: '', edad_maxima: '',
     solicitado_por: '',
   });
+  const [vForm, setVForm] = useState(emptyVForm());
+  const [vFunciones, setVFunciones] = useState<VacanteFuncion[]>([
+    { descripcion: '', dedicacion: '' },
+    { descripcion: '', dedicacion: '' },
+    { descripcion: '', dedicacion: '' },
+  ]);
   // CV
   const [cvTexto, setCvTexto] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -151,23 +163,24 @@ export default function RecruitmentView() {
 
   async function guardarVacante(e: React.FormEvent) {
     e.preventDefault();
-    const keywords = vForm.palabras_clave.split(',').map(k => k.trim()).filter(Boolean);
+    const funcionesFiltradas = vFunciones.filter(f => f.descripcion.trim());
     const resp = await fetch('/api/vacantes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...vForm, palabras_clave: keywords, id_departamento: vForm.id_departamento || null })
+      body: JSON.stringify({
+        ...vForm,
+        id_departamento: vForm.id_departamento || null,
+        funciones: funcionesFiltradas,
+        // Build keywords from requisitos for backward-compat with existing AI handler
+        palabras_clave: [
+          ...vForm.habilidades.split(',').map(k => k.trim()).filter(Boolean),
+          ...vForm.formacion_academica.split(' ').filter(w => w.length > 4),
+        ].filter(Boolean),
+      })
     });
     if (!resp.ok) { const d = await resp.json(); setError('Error: ' + d.error); return; }
     setShowVacanteModal(false);
-    setVForm({
-      titulo: '', id_departamento: '', descripcion: '', palabras_clave: '',
-      salario_ofrecido: '', salario_max: '', modalidad: 'Presencial', cantidad: '1', fecha_limite: '',
-      supervisado_por: '', tipo_puesto: '', ubicacion: '', fecha_necesaria: '',
-      resumen_puesto: '',
-      funcion1: '', dedicacion1: '', funcion2: '', dedicacion2: '', funcion3: '', dedicacion3: '',
-      formacion_academica: '', experiencia_requerida: '', habilidades: '',
-      genero_requerido: '', edad_minima: '', edad_maxima: '',
-      solicitado_por: '',
-    });
+    setVForm(emptyVForm());
+    setVFunciones([{ descripcion: '', dedicacion: '' }, { descripcion: '', dedicacion: '' }, { descripcion: '', dedicacion: '' }]);
     await cargarVacantesFresh();
     showMsg('✅ Convocatoria creada correctamente.');
   }
@@ -1230,21 +1243,33 @@ export default function RecruitmentView() {
               {/* Sección 3: Funciones esenciales */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">⚙️ Funciones esenciales del cargo</h4>
-                {([['funcion1', 'dedicacion1'], ['funcion2', 'dedicacion2'], ['funcion3', 'dedicacion3']] as const).map(([fk, dk], i) => (
-                  <div key={fk} className="flex gap-2 items-start">
+                {vFunciones.map((f, i) => (
+                  <div key={i} className="flex gap-2 items-start">
                     <span className="text-xs text-slate-400 font-bold mt-2.5 shrink-0 w-4">{i + 1}.</span>
-                    <input value={vForm[fk]} onChange={e => setVForm({ ...vForm, [fk]: e.target.value })}
+                    <input value={f.descripcion}
+                      onChange={e => { const n = [...vFunciones]; n[i] = { ...n[i], descripcion: e.target.value }; setVFunciones(n); }}
                       placeholder={`Función ${i + 1}...`}
-                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" />
                     <div className="shrink-0 w-24">
                       <div className="relative">
-                        <input type="number" min="0" max="100" value={vForm[dk]} onChange={e => setVForm({ ...vForm, [dk]: e.target.value })}
-                          placeholder="%" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none pr-6" />
+                        <input type="number" min="0" max="100" value={f.dedicacion}
+                          onChange={e => { const n = [...vFunciones]; n[i] = { ...n[i], dedicacion: e.target.value }; setVFunciones(n); }}
+                          placeholder="%" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none pr-6 focus:ring-2 focus:ring-blue-400" />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
                       </div>
                     </div>
+                    {vFunciones.length > 1 && (
+                      <button type="button" onClick={() => setVFunciones(vFunciones.filter((_, j) => j !== i))}
+                        className="shrink-0 text-red-400 hover:text-red-600 mt-2 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
+                <button type="button" onClick={() => setVFunciones([...vFunciones, { descripcion: '', dedicacion: '' }])}
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-xs hover:underline mt-1 transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Agregar función
+                </button>
                 <p className="text-xs text-slate-400">Porcentaje de dedicación por función (debe sumar 100%)</p>
               </div>
 
@@ -1290,18 +1315,6 @@ export default function RecruitmentView() {
                   <textarea value={vForm.habilidades} onChange={e => setVForm({ ...vForm, habilidades: e.target.value })} rows={2}
                     placeholder="Ej. Manejo de Excel avanzado, conocimiento en normativas laborales..."
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
-                </div>
-              </div>
-
-              {/* Sección 5: Palabras clave para IA */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">🤖 Análisis de IA</h4>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Palabras clave para análisis de CVs *</label>
-                  <input required value={vForm.palabras_clave} onChange={e => setVForm({ ...vForm, palabras_clave: e.target.value })}
-                    placeholder="Java, C++, Python, SQL, liderazgo..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400" />
-                  <p className="text-xs text-slate-400 mt-1">La IA buscará variantes semánticas. Separar por comas.</p>
                 </div>
               </div>
 
