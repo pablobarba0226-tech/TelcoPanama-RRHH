@@ -14,7 +14,7 @@ interface Vacante {
   formacion_academica?: string; experiencia_requerida?: string; habilidades?: string;
   genero_requerido?: string; edad_minima?: number; edad_maxima?: number;
   solicitado_por?: string;
-  modalidad?: string;
+  modalidad?: string; requisitos?: string;
 }
 interface Candidato {
   id: number; nombre: string; apellido?: string; correo?: string; cedula?: string;
@@ -40,18 +40,19 @@ const aLista = (t?: string) =>
 // Detalle de la convocatoria en viñetas (resumen, funciones y requisitos)
 function DetalleVacante({ v }: { v: Vacante }) {
   const funciones = (v.funciones || []).filter(f => f.descripcion);
-  const habilidades = aLista(v.habilidades);
+  const habilidades = (v.habilidades || '').split(/;|\n/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean);
   const estructurado = v.resumen_puesto || funciones.length || v.formacion_academica || v.experiencia_requerida || habilidades.length;
 
-  // Convocatorias viejas sin datos estructurados: mostrar sus palabras clave como lista
+  // Convocatorias viejas sin datos estructurados: usar el texto de requisitos (oraciones completas)
   if (!estructurado) {
-    if (!v.palabras_clave?.length) return null;
+    const items = v.requisitos ? aLista(v.requisitos) : (v.palabras_clave || []);
+    if (!items.length) return null;
     return (
       <div className="px-5 py-4 border-b border-slate-100 text-sm">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Requisitos</h4>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-          {v.palabras_clave.map((k, i) => (
-            <li key={i} className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span>{k}</li>
+        <ul className="space-y-1.5">
+          {items.map((k, i) => (
+            <li key={i} className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span><span>{k}</span></li>
           ))}
         </ul>
       </div>
