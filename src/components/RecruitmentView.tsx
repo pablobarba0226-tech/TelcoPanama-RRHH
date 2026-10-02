@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calendar } from 'lucide-react';
 import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calendar, Pencil } from 'lucide-react';
 
 interface VacanteFuncion { descripcion: string; dedicacion: string; }
@@ -15,6 +14,7 @@ interface Vacante {
   formacion_academica?: string; experiencia_requerida?: string; habilidades?: string;
   genero_requerido?: string; edad_minima?: number; edad_maxima?: number;
   solicitado_por?: string;
+  modalidad?: string;
 }
 interface Candidato {
   id: number; nombre: string; apellido?: string; correo?: string; cedula?: string;
@@ -28,6 +28,75 @@ interface Candidato {
   entrevista?: { fecha: string; hora: string; tipo: string; responsable: string };
   resultado?: { aprobado: boolean; fechaNotificacion: string };
   keywords_match_count?: number;
+}
+
+// Convierte un texto largo ("A; B. C") en una lista de puntos
+const aLista = (t?: string) =>
+  (t || '')
+    .split(/;|\n|\.\s+(?=[A-ZÁÉÍÓÚÑ])/)
+    .map(s => s.trim().replace(/\.$/, ''))
+    .filter(Boolean);
+
+// Detalle de la convocatoria en viñetas (resumen, funciones y requisitos)
+function DetalleVacante({ v }: { v: Vacante }) {
+  const funciones = (v.funciones || []).filter(f => f.descripcion);
+  const habilidades = aLista(v.habilidades);
+  const estructurado = v.resumen_puesto || funciones.length || v.formacion_academica || v.experiencia_requerida || habilidades.length;
+
+  // Convocatorias viejas sin datos estructurados: mostrar sus palabras clave como lista
+  if (!estructurado) {
+    if (!v.palabras_clave?.length) return null;
+    return (
+      <div className="px-5 py-4 border-b border-slate-100 text-sm">
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Requisitos</h4>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+          {v.palabras_clave.map((k, i) => (
+            <li key={i} className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span>{k}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-5 py-4 border-b border-slate-100 space-y-4 text-sm">
+      {v.resumen_puesto && <p className="text-slate-600 leading-relaxed">{v.resumen_puesto}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {funciones.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Funciones esenciales</h4>
+            <ul className="space-y-1.5">
+              {funciones.map((f, i) => (
+                <li key={i} className="flex gap-2 text-slate-700">
+                  <span className="text-blue-500">•</span>
+                  <span className="flex-1">{f.descripcion}</span>
+                  {f.dedicacion && <span className="text-xs text-slate-400 shrink-0">{f.dedicacion}%</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(v.formacion_academica || v.experiencia_requerida || habilidades.length > 0) && (
+          <div>
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Requisitos mínimos</h4>
+            <ul className="space-y-1.5">
+              {v.formacion_academica && (
+                <li className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span>
+                  <span><strong className="font-semibold">Formación:</strong> {v.formacion_academica}</span></li>
+              )}
+              {v.experiencia_requerida && (
+                <li className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span>
+                  <span><strong className="font-semibold">Experiencia:</strong> {v.experiencia_requerida}</span></li>
+              )}
+              {habilidades.map((h, i) => (
+                <li key={i} className="flex gap-2 text-slate-700"><span className="text-blue-500">•</span>{h}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
@@ -75,8 +144,8 @@ export default function RecruitmentView() {
   const [showPool, setShowPool] = useState(false);
 
   // Modals
-  const [editingVacanteId, setEditingVacanteId] = useState<number | null>(null);
   const [showVacanteModal, setShowVacanteModal] = useState(false);
+  const [editingVacanteId, setEditingVacanteId] = useState<number | null>(null);
   const [showAnalyzeModal, setShowAnalyzeModal] = useState(false);
   const [showDescartarModal, setShowDescartarModal] = useState(false);
   const [showEntrevistaModal, setShowEntrevistaModal] = useState(false);
@@ -153,80 +222,80 @@ export default function RecruitmentView() {
     }
   }, [selectedVacante, view]);
 
-  async function cargarVacantes() {
-    const r = await fetch('/api/vacantes');
-    setVacantes(Array.isArray(await r.json()) ? await fetch('/api/vacantes').then(x => x.json()) : []);
-  }
-
   async function cargarVacantesFresh(): Promise<Vacante[]> {
     const r = await fetch('/api/vacantes');
     const d = await r.json();
-    const lista = Array.isArray(d) ? d : [];
+    const lista: Vacante[] = Array.isArray(d) ? d : [];
     setVacantes(lista);
     return lista;
   }
 
+  async function cargarVacantes() {
+    await cargarVacantesFresh();
+  }
+
+  // ── Crear / editar convocatoria ─────────────────────────────────────────────
   const funcionesVacias = () => [
-  { descripcion: '', dedicacion: '' },
-  { descripcion: '', dedicacion: '' },
-  { descripcion: '', dedicacion: '' },
-];
+    { descripcion: '', dedicacion: '' },
+    { descripcion: '', dedicacion: '' },
+    { descripcion: '', dedicacion: '' },
+  ];
 
-function nuevaConvocatoria() {
-  setEditingVacanteId(null);
-  setVForm(emptyVForm());
-  setVFunciones(funcionesVacias());
-  setError('');
-  setShowVacanteModal(true);
-}
+  function nuevaConvocatoria() {
+    setEditingVacanteId(null);
+    setVForm(emptyVForm());
+    setVFunciones(funcionesVacias());
+    setError('');
+    setShowVacanteModal(true);
+  }
 
-function cerrarModalVacante() {
-  setShowVacanteModal(false);
-  setEditingVacanteId(null);
-  setVForm(emptyVForm());
-  setVFunciones(funcionesVacias());
-  setError('');
-}
+  function cerrarModalVacante() {
+    setShowVacanteModal(false);
+    setEditingVacanteId(null);
+    setVForm(emptyVForm());
+    setVFunciones(funcionesVacias());
+    setError('');
+  }
 
-async function abrirEditarVacante(id: number) {
-  setError('');
-  const r = await fetch(`/api/vacantes/${id}`);
-  if (!r.ok) { showMsg('No se pudo cargar la convocatoria.'); return; }
-  const v = await r.json();
-  const s = (x: any) => (x ?? '').toString();
-  setVForm({
-    titulo: s(v.titulo),
-    id_departamento: s(v.id_departamento),
-    descripcion: s(v.descripcion),
-    salario_ofrecido: s(v.salario_ofrecido),
-    salario_max: s(v.salario_max),
-    modalidad: v.modalidad || 'Presencial',
-    cantidad: s(v.cantidad || 1),
-    fecha_limite: s(v.fecha_cierre).slice(0, 10),
-    supervisado_por: s(v.supervisado_por),
-    tipo_puesto: s(v.tipo_puesto),
-    ubicacion: s(v.ubicacion),
-    fecha_necesaria: s(v.fecha_necesaria).slice(0, 10),
-    resumen_puesto: s(v.resumen_puesto),
-    formacion_academica: s(v.formacion_academica),
-    experiencia_requerida: s(v.experiencia_requerida),
-    habilidades: s(v.habilidades),
-    genero_requerido: s(v.genero_requerido),
-    edad_minima: s(v.edad_minima),
-    edad_maxima: s(v.edad_maxima),
-    solicitado_por: s(v.solicitado_por),
-    estado: v.estado || 'Abierta',
-  });
-  const fs = Array.isArray(v.funciones) ? v.funciones : [];
-  setVFunciones(
-    fs.length
-      ? fs.map((f: any) => ({ descripcion: s(f.descripcion), dedicacion: s(f.dedicacion) }))
-      : funcionesVacias()
-  );
-  setEditingVacanteId(id);
-  setShowVacanteModal(true);
-}
-  
+  async function abrirEditarVacante(id: number) {
+    setError('');
+    const r = await fetch(`/api/vacantes/${id}`);
+    if (!r.ok) { showMsg('No se pudo cargar la convocatoria.'); return; }
+    const v = await r.json();
+    const s = (x: any) => (x ?? '').toString();
+    setVForm({
+      titulo: s(v.titulo),
+      id_departamento: s(v.id_departamento),
+      descripcion: s(v.descripcion),
+      salario_ofrecido: s(v.salario_ofrecido),
+      salario_max: s(v.salario_max),
+      modalidad: v.modalidad || 'Presencial',
+      cantidad: s(v.cantidad || 1),
+      fecha_limite: s(v.fecha_cierre).slice(0, 10),
+      supervisado_por: s(v.supervisado_por),
+      tipo_puesto: s(v.tipo_puesto),
+      ubicacion: s(v.ubicacion),
+      fecha_necesaria: s(v.fecha_necesaria).slice(0, 10),
+      resumen_puesto: s(v.resumen_puesto),
+      formacion_academica: s(v.formacion_academica),
+      experiencia_requerida: s(v.experiencia_requerida),
+      habilidades: s(v.habilidades),
+      genero_requerido: s(v.genero_requerido),
+      edad_minima: s(v.edad_minima),
+      edad_maxima: s(v.edad_maxima),
+      solicitado_por: s(v.solicitado_por),
+      estado: v.estado || 'Abierta',
+    });
+    const fs = Array.isArray(v.funciones) ? v.funciones : [];
+    setVFunciones(
+      fs.length
+        ? fs.map((f: any) => ({ descripcion: s(f.descripcion), dedicacion: s(f.dedicacion) }))
+        : funcionesVacias()
+    );
+    setEditingVacanteId(id);
+    setShowVacanteModal(true);
+  }
+
   async function guardarVacante(e: React.FormEvent) {
     e.preventDefault();
     const editando = editingVacanteId !== null;
@@ -238,10 +307,7 @@ async function abrirEditarVacante(id: number) {
         ...vForm,
         id_departamento: vForm.id_departamento || null,
         funciones: funcionesFiltradas,
-        palabras_clave: [
-          ...vForm.habilidades.split(',').map(k => k.trim()).filter(Boolean),
-          ...vForm.formacion_academica.split(' ').filter(w => w.length > 4),
-        ].filter(Boolean),
+        palabras_clave: vForm.habilidades.split(/[;,\n]/).map(k => k.trim()).filter(Boolean),
       })
     });
     if (!resp.ok) { const d = await resp.json(); setError('Error: ' + d.error); return; }
@@ -566,7 +632,7 @@ async function abrirEditarVacante(id: number) {
                   <div className="border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-xl p-4 text-center">
                     <FileText className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
                     <p className="text-sm font-medium text-emerald-700">CV adjunto en sistema · Analizado por IA</p>
-                    <p className="text-xs text-emerald-500 mt-0.5">{c.fecha_recepcion}</p>
+                    <p className="text-xs text-emerald-500 mt-0.5">{c.fecha_recepcion?.slice(0, 10)}</p>
                   </div>
                 </div>
               </div>
@@ -974,7 +1040,7 @@ async function abrirEditarVacante(id: number) {
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
             <Sparkles className="w-4 h-4 shrink-0" /> Analizar CV con IA
           </button>
-          <button onClick={() => setShowVacanteModal(true)}
+          <button onClick={nuevaConvocatoria}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
             <Plus className="w-4 h-4 shrink-0" /> Nueva convocatoria
           </button>
@@ -1015,7 +1081,7 @@ async function abrirEditarVacante(id: number) {
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <Sparkles className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                 <p className="text-slate-500 font-medium">No hay convocatorias creadas</p>
-                <button onClick={() => setShowVacanteModal(true)} className="mt-3 text-blue-600 text-sm hover:underline">+ Crear primera convocatoria</button>
+                <button onClick={nuevaConvocatoria} className="mt-3 text-blue-600 text-sm hover:underline">+ Crear primera convocatoria</button>
               </div>
             )}
             {vacantes.map(v => (
@@ -1037,11 +1103,11 @@ async function abrirEditarVacante(id: number) {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {v.palabras_clave?.slice(0, 6).map(k => <span key={k} className="bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded text-xs">{k}</span>)}
-                    {(v.palabras_clave?.length || 0) > 6 && <span className="text-slate-500 text-xs">+{(v.palabras_clave?.length || 0) - 6}</span>}
-                  </div>
                 </div>
+
+                {/* Detalle en viñetas: resumen, funciones y requisitos */}
+                <DetalleVacante v={v} />
+
                 <div className="p-4 flex flex-wrap items-center gap-3">
                   <div className="text-center shrink-0">
                     <p className="text-2xl font-bold text-blue-600">{v.total_candidatos || 0}</p>
@@ -1084,9 +1150,9 @@ async function abrirEditarVacante(id: number) {
             <div className="bg-slate-800 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
               <span className="text-slate-400 text-sm">Convocatoria:</span>
               <span className="text-white font-semibold text-sm">{selectedVacante.titulo}</span>
-              <div className="flex flex-wrap gap-1 ml-2">
-                {selectedVacante.palabras_clave?.slice(0, 4).map(k => <span key={k} className="bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded text-xs">{k}</span>)}
-              </div>
+              <p className="text-xs text-slate-400 w-full">
+                {aLista(selectedVacante.habilidades).slice(0, 4).join(' · ')}
+              </p>
             </div>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -1183,7 +1249,7 @@ async function abrirEditarVacante(id: number) {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-500 truncate">{c.vacante_titulo || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-slate-400">{c.fecha_recepcion}</td>
+                    <td className="px-4 py-3 text-sm text-slate-400">{c.fecha_recepcion?.slice(0, 10)}</td>
                     <td className="px-4 py-3">
                       {c.score_ia != null ? (
                         <div className="flex items-center gap-2">
@@ -1207,7 +1273,7 @@ async function abrirEditarVacante(id: number) {
         </div>
       )}
 
-      {/* Modal nueva convocatoria */}
+      {/* Modal nueva / editar convocatoria */}
       {showVacanteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -1216,7 +1282,7 @@ async function abrirEditarVacante(id: number) {
                 <h3 className="font-bold text-slate-900 text-lg">{editingVacanteId !== null ? 'Editar convocatoria' : 'Nueva convocatoria'}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Formulario de Solicitud de Puesto</p>
               </div>
-              <button onClick={() => setShowVacanteModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+              <button type="button" onClick={cerrarModalVacante}><X className="w-5 h-5 text-slate-400" /></button>
             </div>
             <form onSubmit={guardarVacante} className="p-5 space-y-5">
               {error && <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm text-red-700">{error}</div>}
@@ -1395,7 +1461,7 @@ async function abrirEditarVacante(id: number) {
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Habilidades y conocimientos específicos</label>
                   <textarea value={vForm.habilidades} onChange={e => setVForm({ ...vForm, habilidades: e.target.value })} rows={2}
-                    placeholder="Ej. Manejo de Excel avanzado, conocimiento en normativas laborales..."
+                    placeholder="Ej. Manejo de Excel avanzado; conocimiento en normativas laborales (separa cada punto con punto y coma)"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none resize-none" />
                 </div>
               </div>
@@ -1420,8 +1486,10 @@ async function abrirEditarVacante(id: number) {
               </div>
 
               <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
-                <button type="button" onClick={() => setShowVacanteModal(false)} className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-lg text-sm">Cancelar</button>
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium">{editingVacanteId !== null ? '💾 Guardar cambios' : '✅ Crear convocatoria'}</button>
+                <button type="button" onClick={cerrarModalVacante} className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium">
+                  {editingVacanteId !== null ? '💾 Guardar cambios' : '✅ Crear convocatoria'}
+                </button>
               </div>
             </form>
           </div>
