@@ -996,14 +996,9 @@ app.post("/api/candidatos/analizar", async (req, res) => {
     // If PDF was sent as base64, extract text server-side using pdf-parse
     let textoFinal = cvTexto || "";
     if (pdfBase64) {
-      try {
-        const buffer = Buffer.from(pdfBase64, "base64");
-        const parsed = await pdfParse(buffer);
-        textoFinal = parsed.text;
-      } catch (pdfErr) {
-        console.error("pdf-parse error:", pdfErr);
-        textoFinal = cvTexto || `[PDF no legible: ${nombre_archivo}]`;
-      }
+      const buffer = Buffer.from(pdfBase64, "base64");
+      const extraido = await extractPdfText(buffer);
+      textoFinal = extraido || cvTexto || `[PDF no legible: ${nombre_archivo}]`;
     }
 
     // Get vacancy keywords
@@ -1028,6 +1023,25 @@ app.post("/api/candidatos/analizar", async (req, res) => {
       const requisitosEstructurados = reqPartes.length
         ? `REQUISITOS MÍNIMOS:\n${reqPartes.join("\n")}`
         : "";
+    
+      const funcionesArr: any[] = Array.isArray(v.funciones) ? v.funciones : [];
+    
+      const seccionFunciones = funcionesArr.length
+        ? funcionesArr
+            .map((f: any, i: number) => {
+              const texto = typeof f === "string" ? f : (f.funcion ?? f.descripcion ?? f.nombre ?? "");
+              const pct = typeof f === "object" && f.porcentaje != null ? ` (${f.porcentaje}%)` : "";
+              return texto ? `${i + 1}. ${texto}${pct}` : "";
+            })
+            .filter(Boolean)
+            .join("\n")
+        : "No especificadas";
+      
+      const keywords: string[] = Array.isArray(v.palabras_clave) ? v.palabras_clave : [];
+      const kwWithEquiv = keywords.length
+        ? keywords.map((k) => `- ${k} (acepta sinónimos y tecnologías equivalentes)`).join("\n")
+        : "Ninguna";
+    
       const prompt = [
         "Eres un especialista senior en reclutamiento de TelcoPanamá S.A., empresa de telecomunicaciones en Panamá.",
         `Analiza este CV para la vacante: "${v.titulo}" (Departamento: ${deptName})`,
