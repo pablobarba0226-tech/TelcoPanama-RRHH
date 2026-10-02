@@ -1058,6 +1058,9 @@ async function abrirEditarVacante(id: number) {
                     <button onClick={() => { setAnalyzeVacanteId(v.id); setShowAnalyzeModal(true); setError(''); }}
                       className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100 whitespace-nowrap shrink-0">
                       <Sparkles className="w-3.5 h-3.5 shrink-0" /> Cargar CVs
+                      <button onClick={() => abrirEditarVacante(v.id)}
+                      className="flex items-center gap-1 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 whitespace-nowrap shrink-0">
+                      <Pencil className="w-3.5 h-3.5 shrink-0" /> Editar
                     </button>
                     <button onClick={() => { setSelectedVacante(v); setView('candidatos'); }}
                       className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100 whitespace-nowrap shrink-0">
@@ -1206,7 +1209,7 @@ async function abrirEditarVacante(id: number) {
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center p-5 border-b border-slate-200 sticky top-0 bg-white z-10">
               <div>
-                <h3 className="font-bold text-slate-900 text-lg">Nueva convocatoria</h3>
+                <h3 className="font-bold text-slate-900 text-lg">{editingVacanteId !== null ? 'Editar convocatoria' : 'Nueva convocatoria'}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Formulario de Solicitud de Puesto</p>
               </div>
               <button onClick={() => setShowVacanteModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
@@ -1293,6 +1296,15 @@ async function abrirEditarVacante(id: number) {
                     <input type="date" value={vForm.fecha_limite} onChange={e => setVForm({ ...vForm, fecha_limite: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
                   </div>
+                  {editingVacanteId !== null && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Estado de la convocatoria</label>
+                      <select value={vForm.estado} onChange={e => setVForm({ ...vForm, estado: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
+                        {['Abierta', 'En proceso', 'Cerrada', 'Cancelada'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1405,7 +1417,7 @@ async function abrirEditarVacante(id: number) {
 
               <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
                 <button type="button" onClick={() => setShowVacanteModal(false)} className="flex-1 border border-slate-200 text-slate-600 py-2.5 rounded-lg text-sm">Cancelar</button>
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium">✅ Crear convocatoria</button>
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium">{editingVacanteId !== null ? '💾 Guardar cambios' : '✅ Crear convocatoria'}</button>
               </div>
             </form>
           </div>
