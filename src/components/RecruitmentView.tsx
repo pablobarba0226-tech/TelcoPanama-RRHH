@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calendar } from 'lucide-react';
+import { Upload, Sparkles, AlertCircle, FileText, Plus, X, Search, Trash2, Calendar, Pencil } from 'lucide-react';
 
 interface VacanteFuncion { descripcion: string; dedicacion: string; }
 interface Vacante {
@@ -74,6 +75,7 @@ export default function RecruitmentView() {
   const [showPool, setShowPool] = useState(false);
 
   // Modals
+  const [editingVacanteId, setEditingVacanteId] = useState<number | null>(null);
   const [showVacanteModal, setShowVacanteModal] = useState(false);
   const [showAnalyzeModal, setShowAnalyzeModal] = useState(false);
   const [showDescartarModal, setShowDescartarModal] = useState(false);
@@ -96,6 +98,7 @@ export default function RecruitmentView() {
     formacion_academica: '', experiencia_requerida: '', habilidades: '',
     genero_requerido: '', edad_minima: '', edad_maxima: '',
     solicitado_por: '',
+    estado: 'Abierta',
   });
   const [vForm, setVForm] = useState(emptyVForm());
   const [vFunciones, setVFunciones] = useState<VacanteFuncion[]>([
@@ -155,22 +158,86 @@ export default function RecruitmentView() {
     setVacantes(Array.isArray(await r.json()) ? await fetch('/api/vacantes').then(x => x.json()) : []);
   }
 
-  async function cargarVacantesFresh() {
+  async function cargarVacantesFresh(): Promise<Vacante[]> {
     const r = await fetch('/api/vacantes');
     const d = await r.json();
-    setVacantes(Array.isArray(d) ? d : []);
+    const lista = Array.isArray(d) ? d : [];
+    setVacantes(lista);
+    return lista;
   }
 
+  const funcionesVacias = () => [
+  { descripcion: '', dedicacion: '' },
+  { descripcion: '', dedicacion: '' },
+  { descripcion: '', dedicacion: '' },
+];
+
+function nuevaConvocatoria() {
+  setEditingVacanteId(null);
+  setVForm(emptyVForm());
+  setVFunciones(funcionesVacias());
+  setError('');
+  setShowVacanteModal(true);
+}
+
+function cerrarModalVacante() {
+  setShowVacanteModal(false);
+  setEditingVacanteId(null);
+  setVForm(emptyVForm());
+  setVFunciones(funcionesVacias());
+  setError('');
+}
+
+async function abrirEditarVacante(id: number) {
+  setError('');
+  const r = await fetch(`/api/vacantes/${id}`);
+  if (!r.ok) { showMsg('No se pudo cargar la convocatoria.'); return; }
+  const v = await r.json();
+  const s = (x: any) => (x ?? '').toString();
+  setVForm({
+    titulo: s(v.titulo),
+    id_departamento: s(v.id_departamento),
+    descripcion: s(v.descripcion),
+    salario_ofrecido: s(v.salario_ofrecido),
+    salario_max: s(v.salario_max),
+    modalidad: v.modalidad || 'Presencial',
+    cantidad: s(v.cantidad || 1),
+    fecha_limite: s(v.fecha_cierre).slice(0, 10),
+    supervisado_por: s(v.supervisado_por),
+    tipo_puesto: s(v.tipo_puesto),
+    ubicacion: s(v.ubicacion),
+    fecha_necesaria: s(v.fecha_necesaria).slice(0, 10),
+    resumen_puesto: s(v.resumen_puesto),
+    formacion_academica: s(v.formacion_academica),
+    experiencia_requerida: s(v.experiencia_requerida),
+    habilidades: s(v.habilidades),
+    genero_requerido: s(v.genero_requerido),
+    edad_minima: s(v.edad_minima),
+    edad_maxima: s(v.edad_maxima),
+    solicitado_por: s(v.solicitado_por),
+    estado: v.estado || 'Abierta',
+  });
+  const fs = Array.isArray(v.funciones) ? v.funciones : [];
+  setVFunciones(
+    fs.length
+      ? fs.map((f: any) => ({ descripcion: s(f.descripcion), dedicacion: s(f.dedicacion) }))
+      : funcionesVacias()
+  );
+  setEditingVacanteId(id);
+  setShowVacanteModal(true);
+}
+  
   async function guardarVacante(e: React.FormEvent) {
     e.preventDefault();
+    const editando = editingVacanteId !== null;
     const funcionesFiltradas = vFunciones.filter(f => f.descripcion.trim());
-    const resp = await fetch('/api/vacantes', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const resp = await fetch(editando ? `/api/vacantes/${editingVacanteId}` : '/api/vacantes', {
+      method: editando ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...vForm,
         id_departamento: vForm.id_departamento || null,
         funciones: funcionesFiltradas,
-        // Build keywords from requisitos for backward-compat with existing AI handler
         palabras_clave: [
           ...vForm.habilidades.split(',').map(k => k.trim()).filter(Boolean),
           ...vForm.formacion_academica.split(' ').filter(w => w.length > 4),
@@ -178,11 +245,10 @@ export default function RecruitmentView() {
       })
     });
     if (!resp.ok) { const d = await resp.json(); setError('Error: ' + d.error); return; }
-    setShowVacanteModal(false);
-    setVForm(emptyVForm());
-    setVFunciones([{ descripcion: '', dedicacion: '' }, { descripcion: '', dedicacion: '' }, { descripcion: '', dedicacion: '' }]);
-    await cargarVacantesFresh();
-    showMsg('✅ Convocatoria creada correctamente.');
+    cerrarModalVacante();
+    const lista = await cargarVacantesFresh();
+    setSelectedVacante(prev => prev ? (lista.find(x => x.id === prev.id) ?? prev) : prev);
+    showMsg(editando ? '✅ Convocatoria actualizada.' : '✅ Convocatoria creada correctamente.');
   }
 
   async function analizarBatch() {
