@@ -1055,14 +1055,18 @@ async function abrirEditarVacante(id: number) {
                     <p className="text-xs text-slate-400">plazas cubiertas</p>
                   </div>
                   <div className="flex gap-2 ml-auto flex-wrap">
-                    <button onClick={() => { setAnalyzeVacanteId(v.id); setShowAnalyzeModal(true); setError(''); }}
-                      className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100 whitespace-nowrap shrink-0">
-                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Cargar CVs
-                      <button onClick={() => abrirEditarVacante(v.id)}
+                    <button
+                      onClick={() => abrirEditarVacante(v.id)}
                       className="flex items-center gap-1 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 whitespace-nowrap shrink-0">
                       <Pencil className="w-3.5 h-3.5 shrink-0" /> Editar
                     </button>
-                    <button onClick={() => { setSelectedVacante(v); setView('candidatos'); }}
+                    <button
+                      onClick={() => { setAnalyzeVacanteId(v.id); setShowAnalyzeModal(true); setError(''); }}
+                      className="flex items-center gap-1 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-100 whitespace-nowrap shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" /> Cargar CVs
+                    </button>
+                    <button
+                      onClick={() => { setSelectedVacante(v); setView('candidatos'); }}
                       className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100 whitespace-nowrap shrink-0">
                       Ver candidatos →
                     </button>
