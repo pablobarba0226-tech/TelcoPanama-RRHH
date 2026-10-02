@@ -1013,8 +1013,12 @@ app.post("/api/candidatos/analizar", async (req, res) => {
 
     // Get all other departments for cross-department suggestion
     const depts = await query("SELECT id, nombre FROM departamentos WHERE activo=TRUE");
-
-    // Build semantic equivalences for common keywords
+    const deptRef = v.departamento_id ?? v.id_departamento ?? v.departamento;
+    const deptName =
+      depts.rows.find((d) => String(d.id) === String(deptRef))?.nombre ??
+      (typeof deptRef === "string" ? deptRef : null) ??
+      "No especificado";
+        // Build semantic equivalences for common keywords
       const prompt = [
         "Eres un especialista senior en reclutamiento de TelcoPanamá S.A., empresa de telecomunicaciones en Panamá.",
         `Analiza este CV para la vacante: "${v.titulo}" (Departamento: ${deptName})`,
