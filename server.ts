@@ -913,22 +913,62 @@ app.get("/api/vacantes", async (_req, res) => {
 app.post("/api/vacantes", async (req, res) => {
   try {
     const b = req.body;
-    
-    // Convertir a array si viene como string separado por comas
+
+    // Convertir palabras_clave a array si viene como string
     const keywordsArray = Array.isArray(b.palabras_clave)
       ? b.palabras_clave
-      : (b.palabras_clave ? b.palabras_clave.split(",").map((s: string) => s.trim()) : []);
+      : (b.palabras_clave ? b.palabras_clave.split(",").map((s: string) => s.trim()).filter(Boolean) : []);
 
     const r = await query(`
-      INSERT INTO vacantes (titulo,id_departamento,descripcion,requisitos,palabras_clave,
-        salario_ofrecido,modalidad,cantidad,fecha_apertura,fecha_cierre,estado)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_DATE,$9,'Abierta') RETURNING *`,
-      [b.titulo, b.id_departamento || null, b.descripcion || null, b.requisitos || null,
-       keywordsArray, b.salario_ofrecido || null, b.modalidad, b.cantidad || 1, b.fecha_cierre || null]);
-       
+      INSERT INTO vacantes (
+        titulo, id_departamento, descripcion, requisitos, palabras_clave,
+        salario_ofrecido, salario_max, modalidad, cantidad,
+        fecha_apertura, fecha_cierre, estado,
+        supervisado_por, tipo_puesto, ubicacion, fecha_necesaria,
+        resumen_puesto, funciones,
+        formacion_academica, experiencia_requerida, habilidades,
+        genero_requerido, edad_minima, edad_maxima,
+        solicitado_por
+      )
+      VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,
+        CURRENT_DATE,$10,'Abierta',
+        $11,$12,$13,$14,
+        $15,$16,
+        $17,$18,$19,
+        $20,$21,$22,
+        $23
+      ) RETURNING *`,
+      [
+        b.titulo,
+        b.id_departamento || null,
+        b.descripcion || null,
+        b.requisitos || null,
+        keywordsArray,
+        b.salario_ofrecido || null,
+        b.salario_max || null,
+        b.modalidad || 'Presencial',
+        b.cantidad || 1,
+        b.fecha_limite || b.fecha_cierre || null,   // acepta ambos nombres
+        b.supervisado_por || null,
+        b.tipo_puesto || null,
+        b.ubicacion || null,
+        b.fecha_necesaria || null,
+        b.resumen_puesto || null,
+        b.funciones ? JSON.stringify(b.funciones) : null,   // JSONB array
+        b.formacion_academica || null,
+        b.experiencia_requerida || null,
+        b.habilidades || null,
+        b.genero_requerido || null,
+        b.edad_minima || null,
+        b.edad_maxima || null,
+        b.solicitado_por || null,
+      ]
+    );
+
     res.json(r.rows[0]);
-  } catch (e: any) { 
-    res.status(500).json({ error: e.message }); 
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -975,72 +1015,57 @@ app.post("/api/candidatos/analizar", async (req, res) => {
     const depts = await query("SELECT id, nombre FROM departamentos WHERE activo=TRUE");
 
     // Build semantic equivalences for common keywords
-    const kwEquivalences: Record<string, string[]> = {
-      "SQL":         ["PostgreSQL", "MySQL", "Oracle", "SQLite", "MariaDB", "SQL Server", "T-SQL", "PL/SQL", "HQL"],
-      "Java":        ["Java EE", "Spring Boot", "Spring", "JPA", "Hibernate", "Maven", "Gradle", "JVM", "Jakarta EE"],
-      "C++":         ["C plus plus", "STL", "Boost", "Qt", "C++11", "C++14", "C++17", "C++20"],
-      "Python":      ["Django", "Flask", "FastAPI", "pandas", "NumPy", "scikit-learn", "TensorFlow", "PyTorch"],
-      "JavaScript":  ["TypeScript", "Node.js", "React", "Vue", "Angular", "Next.js"],
-      "Cloud":       ["AWS", "Azure", "GCP", "Google Cloud", "EC2", "S3", "Lambda"],
-      "Docker":      ["Kubernetes", "K8s", "container", "contenedor"],
-      "Linux":       ["Ubuntu", "CentOS", "RHEL", "Debian", "Bash", "Shell"],
-      "REST API":    ["RESTful", "API REST", "HTTP API", "OpenAPI", "Swagger"],
-      "base de datos":["PostgreSQL", "MySQL", "Oracle", "MongoDB", "Redis", "SQL Server"],
-    };
-
-    const kwWithEquiv = v.palabras_clave?.map((kw: string) => {
-      const equivs = kwEquivalences[kw] || [];
-      return equivs.length > 0 ? kw + " (o equivalentes: " + equivs.join(", ") + ")" : kw;
-    }).join("\n  - ") || "No especificadas";
-
-    const deptName = v.id_departamento
-      ? (depts.rows.find((d: any) => d.id === v.id_departamento)?.nombre || "General")
-      : "General";
-
-    const prompt = [
-      "Eres un especialista senior en reclutamiento de TelcoPanamá S.A., empresa de telecomunicaciones en Panamá.",
-      "Analiza este CV para la vacante: \"" + v.titulo + "\" (Departamento: " + deptName + ")",
-      "",
-      "DESCRIPCIÓN: " + (v.descripcion || "No especificada"),
-      "",
-      "PALABRAS CLAVE REQUERIDAS (con equivalentes semánticos):",
-      "  - " + kwWithEquiv,
-      "",
-      "REGLA CRÍTICA DE MATCHING SEMÁNTICO:",
-      "- Si keyword es SQL: PostgreSQL, MySQL, Oracle, MariaDB, SQLite, SQL Server cuentan como ENCONTRADA.",
-      "- Si keyword es Java: Spring Boot, Spring, Hibernate, JPA, Maven, JEE cuentan como ENCONTRADA.",
-      "- Si keyword es Python: Django, Flask, FastAPI, pandas, NumPy, scikit-learn cuentan como ENCONTRADA.",
-      "- Si keyword es C++: STL, Boost, Qt, C++11/14/17/20 cuentan como ENCONTRADA.",
-      "- Si keyword es Cloud: AWS, Azure, GCP, EC2, S3, Lambda cuentan como ENCONTRADA.",
-      "- Si keyword es REST API: RESTful, HTTP API, OpenAPI cuentan como ENCONTRADA.",
-      "- Aplicar criterio semántico equivalente para cualquier otra keyword.",
-      "",
-      "ARCHIVO: " + (nombre_archivo || "CV"),
-      "DEPARTAMENTOS DISPONIBLES: " + depts.rows.map((d: any) => d.nombre).join(", "),
-      "",
-      "CV:",
-      "---",
-      (textoFinal?.slice(0, 6000) || "No proporcionado"),
-      "---",
-      "",
-      "Responde ÚNICAMENTE con JSON válido sin backticks ni texto extra:",
-      "{",
-      '  "nombre": "primer nombre del candidato (OBLIGATORIO — si no está explícito, inferirlo del email o archivo)",',
-      '  "apellido": "apellido del candidato o null si no se encuentra",',
-      '  "correo": "email detectado en el CV o null",',
-      '  "telefono": "teléfono detectado en el CV o null",',
-      '  "cedula": "número de cédula detectado en el CV o null",',
-      '  "score_ia": numero entero 0-100,',
-      '  "palabras_clave_match": ["keywords encontradas aplicando criterio semántico"],',
-      '  "palabras_clave_falta": ["keywords que NO aparecen ni con variantes"],',
-      '  "resumen_ia": "2-3 oraciones del perfil",',
-      '  "fortalezas_ia": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],',
-      '  "debilidades_ia": ["debilidad 1", "debilidad 2"],',
-      '  "recomendacion_ia": "ENTREVISTAR o REVISAR o DESCARTAR",',
-      '  "alerta_otras_areas": true o false,',
-      '  "areas_sugeridas": ["nombre departamento"] o []',
-      "}",
-    ].join("\n");
+      const prompt = [
+        "Eres un especialista senior en reclutamiento de TelcoPanamá S.A., empresa de telecomunicaciones en Panamá.",
+        `Analiza este CV para la vacante: "${v.titulo}" (Departamento: ${deptName})`,
+        "",
+        `DESCRIPCIÓN / RESUMEN DEL PUESTO:`,
+        v.resumen_puesto || v.descripcion || "No especificada",
+        v.tipo_puesto ? `TIPO DE PUESTO: ${v.tipo_puesto}` : "",
+        "",
+        "══ REQUISITOS MÍNIMOS ══",
+        requisitosEstructurados,
+        "",
+        "══ FUNCIONES ESENCIALES DEL CARGO ══",
+        seccionFunciones,
+        "",
+        "══ PALABRAS CLAVE ADICIONALES ══",
+        kwWithEquiv,
+        "",
+        "REGLA DE EVALUACIÓN:",
+        "- Evalúa si el candidato cumple CADA UNO de los requisitos mínimos.",
+        "- Para habilidades/conocimientos, aplica criterio semántico: variantes y equivalentes cuentan.",
+        "- Penaliza fuertemente si NO cumple formación académica o experiencia mínima.",
+        "- Si género es requerido y el CV lo indica diferente, mencionarlo en debilidades_ia.",
+        "- El score_ia debe reflejar el PORCENTAJE de requisitos cumplidos (0-100).",
+        "- ENTREVISTAR si score >= 70, REVISAR si 45-69, DESCARTAR si < 45.",
+        "",
+        `ARCHIVO: ${nombre_archivo || "CV"}`,
+        `DEPARTAMENTOS DISPONIBLES: ${depts.rows.map((d: any) => d.nombre).join(", ")}`,
+        "",
+        "CV:",
+        "---",
+        (textoFinal?.slice(0, 6000) || "No proporcionado"),
+        "---",
+        "",
+        "Responde ÚNICAMENTE con JSON válido sin backticks ni texto extra:",
+        "{",
+        '  "nombre": "primer nombre del candidato (OBLIGATORIO — si no está explícito, inferirlo del email o archivo)",',
+        '  "apellido": "apellido del candidato o null si no se encuentra",',
+        '  "correo": "email detectado en el CV o null",',
+        '  "telefono": "teléfono detectado en el CV o null",',
+        '  "cedula": "número de cédula detectado en el CV o null",',
+        '  "score_ia": numero entero 0-100,',
+        '  "palabras_clave_match": ["requisitos/habilidades que SÍ cumple el candidato"],',
+        '  "palabras_clave_falta": ["requisitos/habilidades que le FALTAN al candidato"],',
+        '  "resumen_ia": "2-3 oraciones del perfil y fit con el puesto",',
+        '  "fortalezas_ia": ["fortaleza 1 (vincular con un requisito)", "fortaleza 2", "fortaleza 3"],',
+        '  "debilidades_ia": ["requisito que no cumple 1", "requisito que no cumple 2"],',
+        '  "recomendacion_ia": "ENTREVISTAR o REVISAR o DESCARTAR",',
+        '  "alerta_otras_areas": true o false,',
+        '  "areas_sugeridas": ["nombre departamento"] o []',
+        "}",
+    ].filter(s => s !== "").join("\n");
 
     const jsonText = await analyzeWithGroq(prompt);
     const analysis = JSON.parse(jsonText);
