@@ -1019,6 +1019,15 @@ app.post("/api/candidatos/analizar", async (req, res) => {
       (typeof deptRef === "string" ? deptRef : null) ??
       "No especificado";
         // Build semantic equivalences for common keywords
+      const reqPartes = [
+        v.formacion_academica && `- Formación académica: ${v.formacion_academica}`,
+        v.experiencia_requerida && `- Experiencia requerida: ${v.experiencia_requerida}`,
+        v.habilidades && `- Habilidades y conocimientos: ${v.habilidades}`,
+      ].filter(Boolean);
+      
+      const requisitosEstructurados = reqPartes.length
+        ? `REQUISITOS MÍNIMOS:\n${reqPartes.join("\n")}`
+        : "";
       const prompt = [
         "Eres un especialista senior en reclutamiento de TelcoPanamá S.A., empresa de telecomunicaciones en Panamá.",
         `Analiza este CV para la vacante: "${v.titulo}" (Departamento: ${deptName})`,
