@@ -138,6 +138,8 @@ export default function RecruitmentView() {
   const [vacantes, setVacantes] = useState<Vacante[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [departamentos, setDepartamentos] = useState<any[]>([]);
+  const [supervisores, setSupervisores] = useState<{ id: number; nombre_completo: string; cargo: string; nivel: string; anios: number }[]>([]);
+  const [cargandoSup, setCargandoSup] = useState(false);
   const [cargos, setCargos] = useState<any[]>([]);
   const [selectedVacante, setSelectedVacante] = useState<Vacante | null>(null);
   const [selectedCandidato, setSelectedCandidato] = useState<Candidato | null>(null);
@@ -223,10 +225,43 @@ export default function RecruitmentView() {
     }
   }, [selectedVacante, view]);
 
+  // Supervisores elegibles del departamento elegido (alto cargo, antigüedad e inducción completa)
+  useEffect(() => {
+    if (!showVacanteModal || !vForm.id_departamento) { setSupervisores([]); return; }
+    let activo = true;
+    setCargandoSup(true);
+    fetch(`/api/vacantes/supervisores?id_departamento=${vForm.id_departamento}`)
+      .then(r => r.json())
+      .then(d => { if (activo) setSupervisores(Array.isArray(d) ? d : []); })
+      .catch(() => { if (activo) setSupervisores([]); })
+      .finally(() => { if (activo) setCargandoSup(false); });
+    return () => { activo = false; };
+  }, [showVacanteModal, vForm.id_departamento]);
+
   async function cargarVacantesFresh(): Promise<Vacante[]> {
     const r = await fetch('/api/vacantes');
     const d = await r.json();
-    const lista: Vacante[] = Array.isArray(d) ? d : [];
+    let lista: Vacante[] = Array.isArray(d) ? d : [];
+    // Completa cada convocatoria con sus datos detallados (funciones, requisitos, etc.)
+    lista = await Promise.all(lista.map(async (v) => {
+      if (v.funciones || v.formacion_academica || v.habilidades || v.resumen_puesto) return v;
+      try {
+        const rd = await fetch(`/api/vacantes/${v.id}`);
+        if (!rd.ok) return v;
+        const x = await rd.json();
+        return {
+          ...v,
+          requisitos: x.requisitos ?? v.requisitos,
+          resumen_puesto: x.resumen_puesto ?? v.resumen_puesto,
+          funciones: x.funciones ?? v.funciones,
+          formacion_academica: x.formacion_academica ?? v.formacion_academica,
+          experiencia_requerida: x.experiencia_requerida ?? v.experiencia_requerida,
+          habilidades: x.habilidades ?? v.habilidades,
+          tipo_puesto: x.tipo_puesto ?? v.tipo_puesto,
+          ubicacion: x.ubicacion ?? v.ubicacion,
+        };
+      } catch { return v; }
+    }));
     setVacantes(lista);
     return lista;
   }
@@ -1300,17 +1335,30 @@ export default function RecruitmentView() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
-                    <select value={vForm.id_departamento} onChange={e => setVForm({ ...vForm, id_departamento: e.target.value })}
+                    <select value={vForm.id_departamento} onChange={e => setVForm({ ...vForm, id_departamento: e.target.value, supervisado_por: '' })}
                       className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none">
                       <option value="">Seleccione</option>
                       {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Supervisado por</label>
-                    <input value={vForm.supervisado_por} onChange={e => setVForm({ ...vForm, supervisado_por: e.target.value })}
-                      placeholder="Nombre del supervisor directo"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none" />
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Solicitado y supervisado por</label>
+                    <select value={vForm.supervisado_por} onChange={e => setVForm({ ...vForm, supervisado_por: e.target.value })}
+                      required disabled={!vForm.id_departamento || cargandoSup}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400">
+                      <option value="">
+                        {!vForm.id_departamento ? 'Primero elija el departamento' : cargandoSup ? 'Cargando…' : supervisores.length ? 'Seleccione un responsable' : 'Sin responsables elegibles'}
+                      </option>
+                      {vForm.supervisado_por && !supervisores.some(x => x.nombre_completo === vForm.supervisado_por) && (
+                        <option value={vForm.supervisado_por}>{vForm.supervisado_por} (no elegible actualmente)</option>
+                      )}
+                      {supervisores.map(x => (
+                        <option key={x.id} value={x.nombre_completo}>{x.nombre_completo} — {x.cargo} · {x.anios} años</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Solo jefaturas, gerencias y directivos del departamento con 2+ años en la empresa e inducción completa.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de posición</label>
