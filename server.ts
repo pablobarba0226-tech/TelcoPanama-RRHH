@@ -972,6 +972,73 @@ app.post("/api/vacantes", async (req, res) => {
   }
 });
 
+// GET una vacante completa (para precargar el formulario de edición)
+app.get("/api/vacantes/:id", async (req, res) => {
+  try {
+    const r = await query(
+      `SELECT v.*,
+              v.fecha_apertura::DATE::TEXT  AS fecha_apertura,
+              v.fecha_cierre::DATE::TEXT    AS fecha_cierre,
+              v.fecha_necesaria::DATE::TEXT AS fecha_necesaria
+       FROM vacantes v WHERE v.id=$1`,
+      [req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Vacante no encontrada" });
+    res.json(r.rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT editar vacante
+app.put("/api/vacantes/:id", async (req, res) => {
+  try {
+    const b = req.body;
+    const keywordsArray = Array.isArray(b.palabras_clave)
+      ? b.palabras_clave
+      : (b.palabras_clave ? String(b.palabras_clave).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const r = await query(
+      `UPDATE vacantes SET
+         titulo=$1, id_departamento=$2, descripcion=$3, requisitos=$4, palabras_clave=$5,
+         salario_ofrecido=$6, salario_max=$7, modalidad=$8, cantidad=$9,
+         fecha_cierre=$10, supervisado_por=$11, tipo_puesto=$12, ubicacion=$13,
+         fecha_necesaria=$14, resumen_puesto=$15, funciones=$16::jsonb,
+         formacion_academica=$17, experiencia_requerida=$18, habilidades=$19,
+         genero_requerido=$20, edad_minima=$21, edad_maxima=$22, solicitado_por=$23,
+         estado=COALESCE($24, estado)
+       WHERE id=$25 RETURNING *`,
+      [
+        b.titulo,
+        b.id_departamento || null,
+        b.descripcion || null,
+        b.requisitos || null,
+        keywordsArray,
+        b.salario_ofrecido || null,
+        b.salario_max || null,
+        b.modalidad || "Presencial",
+        b.cantidad || 1,
+        b.fecha_limite || b.fecha_cierre || null,
+        b.supervisado_por || null,
+        b.tipo_puesto || null,
+        b.ubicacion || null,
+        b.fecha_necesaria || null,
+        b.resumen_puesto || null,
+        JSON.stringify(b.funciones ?? []),
+        b.formacion_academica || null,
+        b.experiencia_requerida || null,
+        b.habilidades || null,
+        b.genero_requerido || null,
+        b.edad_minima || null,
+        b.edad_maxima || null,
+        b.solicitado_por || null,
+        b.estado || null,
+        req.params.id,
+      ]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Vacante no encontrada" });
+    res.json(r.rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/candidatos", async (req, res) => {
   try {
     const { vacante, estado } = req.query;
