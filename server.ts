@@ -78,7 +78,11 @@ async function analyzeWithGroq(prompt: string): Promise<string> {
 
   if (res.status === 401) throw new Error("API_KEY_INVALID");
   if (res.status === 429) throw new Error("RATE_LIMIT");
-  if (!res.ok) throw new Error(`Groq error ${res.status}`);
+  if (!res.ok) {
+    const detalle = await res.text().catch(() => "");
+    console.error("Groq error", res.status, detalle);
+    throw new Error(`Groq error ${res.status}: ${detalle.slice(0, 300)}`);
+  }
 
   const data = await res.json() as any;
   const text = data.choices?.[0]?.message?.content || "";
@@ -922,6 +926,10 @@ app.post("/api/vacantes", async (req, res) => {
   try {
     const b = req.body;
 
+    if (!(await supervisorEsValido(b.id_departamento, b.supervisado_por))) {
+      return res.status(400).json({ error: MSG_SUP_INVALIDO });
+    }
+
     // Convertir palabras_clave a array si viene como string
     const keywordsArray = Array.isArray(b.palabras_clave)
       ? b.palabras_clave
@@ -980,6 +988,56 @@ app.post("/api/vacantes", async (req, res) => {
   }
 });
 
+// ── Responsables elegibles para solicitar/supervisar una vacante ────────────
+// Solo alto cargo del departamento, con antigüedad e inducción completa.
+const SUP_NIVELES = ["Directivo", "Gerencial", "Jefatura"];
+const SUP_MIN_ANIOS = 2;
+
+async function supervisoresElegibles(idDepartamento: number) {
+  const r = await query(
+    `SELECT e.id,
+            e.nombre || ' ' || e.apellido AS nombre_completo,
+            c.titulo AS cargo, c.nivel,
+            EXTRACT(YEAR FROM age(CURRENT_DATE, e.fecha_ingreso))::int AS anios
+       FROM empleados e
+       JOIN cargos c ON c.id = e.id_cargo
+      WHERE e.estado = 'Activo'
+        AND e.id_departamento = $1
+        AND c.nivel = ANY($2)
+        AND e.fecha_ingreso <= CURRENT_DATE - make_interval(years => $3::int)
+        AND NOT EXISTS (
+          SELECT 1 FROM induccion_empleado ie
+            JOIN items_induccion ii ON ii.id = ie.id_item
+           WHERE ie.id_empleado = e.id
+             AND ii.obligatorio
+             AND COALESCE(ie.completado, false) = false)
+      ORDER BY CASE c.nivel WHEN 'Directivo' THEN 1 WHEN 'Gerencial' THEN 2 ELSE 3 END,
+               e.fecha_ingreso`,
+    [idDepartamento, SUP_NIVELES, SUP_MIN_ANIOS]
+  );
+  return r.rows;
+}
+
+async function supervisorEsValido(idDepartamento: any, nombre: any): Promise<boolean> {
+  const dep = Number(idDepartamento);
+  const n = String(nombre || "").trim().toLowerCase();
+  if (!dep || !n) return false;
+  const lista = await supervisoresElegibles(dep);
+  return lista.some((s: any) => String(s.nombre_completo).toLowerCase() === n);
+}
+
+const MSG_SUP_INVALIDO =
+  "El responsable debe ser una jefatura, gerencia o directivo del departamento, con 2+ años en la empresa e inducción completa.";
+
+// IMPORTANTE: debe ir ANTES de /api/vacantes/:id
+app.get("/api/vacantes/supervisores", async (req, res) => {
+  try {
+    const dep = Number(req.query.id_departamento);
+    if (!dep) return res.json([]);
+    res.json(await supervisoresElegibles(dep));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // GET una vacante completa (para precargar el formulario de edición)
 app.get("/api/vacantes/:id", async (req, res) => {
   try {
@@ -1000,6 +1058,13 @@ app.get("/api/vacantes/:id", async (req, res) => {
 app.put("/api/vacantes/:id", async (req, res) => {
   try {
     const b = req.body;
+
+    const actual = await query("SELECT supervisado_por FROM vacantes WHERE id=$1", [req.params.id]);
+    if (!actual.rows.length) return res.status(404).json({ error: "Vacante no encontrada" });
+    const sinCambio = (actual.rows[0].supervisado_por || "") === (b.supervisado_por || "");
+    if (!sinCambio && !(await supervisorEsValido(b.id_departamento, b.supervisado_por))) {
+      return res.status(400).json({ error: MSG_SUP_INVALIDO });
+    }
     const keywordsArray = Array.isArray(b.palabras_clave)
       ? b.palabras_clave
       : (b.palabras_clave ? String(b.palabras_clave).split(",").map((s: string) => s.trim()).filter(Boolean) : []);
@@ -1138,7 +1203,6 @@ app.post("/api/candidatos/analizar", async (req, res) => {
         "- Evalúa si el candidato cumple CADA UNO de los requisitos mínimos.",
         "- Para habilidades/conocimientos, aplica criterio semántico: variantes y equivalentes cuentan.",
         "- Penaliza fuertemente si NO cumple formación académica o experiencia mínima.",
-        "- Si género es requerido y el CV lo indica diferente, mencionarlo en debilidades_ia.",
         "- El score_ia debe reflejar el PORCENTAJE de requisitos cumplidos (0-100).",
         "- ENTREVISTAR si score >= 70, REVISAR si 45-69, DESCARTAR si < 45.",
         "",
