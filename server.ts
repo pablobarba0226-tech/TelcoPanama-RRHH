@@ -892,6 +892,7 @@ app.get("/api/vacantes", async (_req, res) => {
         v.cantidad,
         v.fecha_apertura::DATE::TEXT AS fecha_apertura,
         v.fecha_cierre::DATE::TEXT AS fecha_cierre,
+        v.fecha_cierre::DATE::TEXT AS fecha_limite,
         v.estado,
         d.nombre AS departamento_nombre,
         COUNT(c.id)::int AS total_candidatos,
@@ -1097,7 +1098,7 @@ app.post("/api/candidatos/analizar", async (req, res) => {
         ? funcionesArr
             .map((f: any, i: number) => {
               const texto = typeof f === "string" ? f : (f.funcion ?? f.descripcion ?? f.nombre ?? "");
-              const pct = typeof f === "object" && f.porcentaje != null ? ` (${f.porcentaje}%)` : "";
+              const pct = typeof f === "object" && f.dedicacion ? ` (${f.dedicacion}%)` : "";
               return texto ? `${i + 1}. ${texto}${pct}` : "";
             })
             .filter(Boolean)
